@@ -1,0 +1,46 @@
+{
+  "year": "2026",
+  "rounds": {
+    "r1": {
+      "label": "First Round",
+      "east": [
+        { "seedHigh": 1, "seedLow": 8, "teams": ["DET", "ORL"], "names": ["Detroit Pistons", "Orlando Magic"], "records": ["60-22", "45-37"], "wins": [3, 2], "leader": "ORL", "series": "ORL leads 3-2", "tonightEventId": "401869417" },
+        { "seedHigh": 4, "seedLow": 5, "teams": ["CLE", "TOR"], "names": ["Cleveland Cavaliers", "Toronto Raptors"], "records": ["52-30", "46-36"], "wins": [3, 2], "leader": "CLE", "series": "CLE leads 3-2", "tonightEventId": "401869381" },
+        { "seedHigh": 2, "seedLow": 7, "teams": ["BOS", "PHI"], "names": ["Boston Celtics", "Philadelphia 76ers"], "records": ["56-26", "45-37"], "wins": [4, 1], "leader": "BOS", "series": "BOS wins 4-1" },
+        { "seedHigh": 3, "seedLow": 6, "teams": ["MIL", "NYK"], "names": ["Milwaukee Bucks", "New York Knicks"], "records": ["50-32", "49-33"], "wins": [3, 2], "leader": "MIL", "series": "MIL leads 3-2" }
+      ],
+      "west": [
+        { "seedHigh": 1, "seedLow": 8, "teams": ["OKC", "MEM"], "names": ["Oklahoma City Thunder", "Memphis Grizzlies"], "records": ["61-21", "44-38"], "wins": [4, 0], "leader": "OKC", "series": "OKC wins 4-0" },
+        { "seedHigh": 4, "seedLow": 5, "teams": ["LAL", "HOU"], "names": ["Los Angeles Lakers", "Houston Rockets"], "records": ["53-29", "52-30"], "wins": [3, 2], "leader": "LAL", "series": "LAL leads 3-2", "tonightEventId": "401869409" },
+        { "seedHigh": 2, "seedLow": 7, "teams": ["DEN", "GSW"], "names": ["Denver Nuggets", "Golden State Warriors"], "records": ["54-28", "47-35"], "wins": [3, 2], "leader": "DEN", "series": "DEN leads 3-2" },
+        { "seedHigh": 3, "seedLow": 6, "teams": ["MIN", "DAL"], "names": ["Minnesota Timberwolves", "Dallas Mavericks"], "records": ["52-30", "48-34"], "wins": [4, 2], "leader": "MIN", "series": "MIN wins 4-2" }
+      ]
+    },
+    "r2": {
+      "label": "Second Round",
+      "east": [
+        { "teams": ["ORL?", "CLE?"], "names": ["1/8 winner", "4/5 winner"], "records": ["projected", "projected"], "wins": [0, 0], "leader": null, "series": "Awaiting first round" },
+        { "teams": ["BOS", "MIL?"], "names": ["Boston Celtics", "3/6 winner"], "records": ["56-26", "projected"], "wins": [0, 0], "leader": null, "series": "BOS awaiting opponent" }
+      ],
+      "west": [
+        { "teams": ["OKC", "LAL?"], "names": ["Oklahoma City Thunder", "4/5 winner"], "records": ["61-21", "projected"], "wins": [0, 0], "leader": null, "series": "OKC awaiting opponent" },
+        { "teams": ["DEN?", "MIN"], "names": ["2/7 winner", "Minnesota Timberwolves"], "records": ["projected", "52-30"], "wins": [0, 0], "leader": null, "series": "MIN awaiting opponent" }
+      ]
+    },
+    "r3": {
+      "label": "Conference Championships",
+      "east": [
+        { "teams": ["TBD", "TBD"], "names": ["East R2 winner", "East R2 winner"], "records": ["TBD", "TBD"], "wins": [0, 0], "leader": null, "series": "Eastern Conference Finals" }
+      ],
+      "west": [
+        { "teams": ["TBD", "TBD"], "names": ["West R2 winner", "West R2 winner"], "records": ["TBD", "TBD"], "wins": [0, 0], "leader": null, "series": "Western Conference Finals" }
+      ]
+    },
+    "r4": {
+      "label": "NBA Finals",
+      "finals": [
+        { "teams": ["TBD", "TBD"], "names": ["East champion", "West champion"], "records": ["TBD", "TBD"], "wins": [0, 0], "leader": null, "series": "Best of 7" }
+      ]
+    }
+  }
+}

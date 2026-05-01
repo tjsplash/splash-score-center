@@ -1,0 +1,43 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>Splash Score Center · Home</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="description" content="Live NBA play-by-play, social reactions, and Polymarket-context — all in one place. Splash Score Center, a Splash Sports prototype." />
+  <link rel="preconnect" href="https://a.espncdn.com" crossorigin />
+  <link rel="preconnect" href="https://site.api.espn.com" crossorigin />
+  <link rel="stylesheet" href="assets/styles.css" />
+</head>
+<body data-page="home">
+  <header class="nav">
+    <a href="index.html" class="nav__logo" aria-label="Splash Score Center home">
+      <svg class="nav__logo-mark" viewBox="0 0 32 32" fill="currentColor" aria-hidden="true">
+        <path d="M16 2C9 12 5 17 5 22a11 11 0 0 0 22 0c0-5-4-10-11-20Z"/>
+      </svg>
+      <span>Splash <span style="color:var(--teal)">Score Center</span></span>
+    </a>
+    <nav>
+      <ul class="nav__links">
+        <li><a class="nav__link" data-page="home" href="index.html">Home</a></li>
+        <li><a class="nav__link" data-page="scoreboard" href="scoreboard.html">Scoreboard</a></li>
+        <li><a class="nav__link" data-page="game" href="game.html?id=401869381">Game Center</a></li>
+      </ul>
+    </nav>
+    <div class="nav__right">
+      <span class="nav__identity"></span>
+    </div>
+  </header>
+
+  <div class="ticker" aria-label="Tonight's NBA games"></div>
+
+  <main class="page">
+    <h1 class="page-title">Tonight's games <span class="section-heading__pill">Live data via ESPN</span></h1>
+    <section class="tonight" id="tonight"></section>
+
+    <section class="bracket" id="bracket" style="margin-top:32px;"></section>
+  </main>
+
+  <script type="module" src="assets/home.js"></script>
+</body>
+</html>

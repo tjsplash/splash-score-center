@@ -1,0 +1,58 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>Splash Score Center · Game Center</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="description" content="Live play-by-play, social reactions, box score, win probability, and Polymarket-style markets — all in one place." />
+  <link rel="preconnect" href="https://a.espncdn.com" crossorigin />
+  <link rel="preconnect" href="https://site.api.espn.com" crossorigin />
+  <link rel="stylesheet" href="assets/styles.css" />
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js" defer></script>
+</head>
+<body data-page="game">
+  <header class="nav">
+    <a href="index.html" class="nav__logo" aria-label="Splash Score Center home">
+      <svg class="nav__logo-mark" viewBox="0 0 32 32" fill="currentColor" aria-hidden="true">
+        <path d="M16 2C9 12 5 17 5 22a11 11 0 0 0 22 0c0-5-4-10-11-20Z"/>
+      </svg>
+      <span>Splash <span style="color:var(--teal)">Score Center</span></span>
+    </a>
+    <nav>
+      <ul class="nav__links">
+        <li><a class="nav__link" data-page="home" href="index.html">Home</a></li>
+        <li><a class="nav__link" data-page="scoreboard" href="scoreboard.html">Scoreboard</a></li>
+        <li><a class="nav__link" data-page="game" href="game.html?id=401869381">Game Center</a></li>
+      </ul>
+    </nav>
+    <div class="nav__right">
+      <span class="nav__identity"></span>
+    </div>
+  </header>
+
+  <div class="ticker" aria-label="Tonight's NBA games"></div>
+
+  <div class="gc">
+    <section class="gc__main">
+      <header class="gc__header" id="gc-header"></header>
+      <div class="gc__tabs" role="tablist">
+        <button class="gc__tab is-active" role="tab" data-tab="pbp" aria-selected="true">Play-by-Play</button>
+        <button class="gc__tab" role="tab" data-tab="boxscore">Box Score</button>
+        <button class="gc__tab" role="tab" data-tab="markets">Markets</button>
+        <button class="gc__tab" role="tab" data-tab="winprob">Win Probability</button>
+      </div>
+      <div class="gc__panels">
+        <div class="gc__panel is-active" data-panel="pbp" id="panel-pbp"></div>
+        <div class="gc__panel" data-panel="boxscore" id="panel-boxscore"></div>
+        <div class="gc__panel" data-panel="markets" id="panel-markets"></div>
+        <div class="gc__panel" data-panel="winprob" id="panel-winprob">
+          <div class="wp-chart"><canvas id="winprob-chart"></canvas></div>
+        </div>
+      </div>
+    </section>
+    <aside class="gc-chat" id="game-chat"></aside>
+  </div>
+
+  <script type="module" src="assets/game.js"></script>
+</body>
+</html>

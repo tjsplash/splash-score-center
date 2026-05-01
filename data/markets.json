@@ -1,0 +1,51 @@
+{
+  "_note": "Real Polymarket slugs + opening prices from gamma-api.polymarket.com, captured 2026-05-01. Polymarket redirects market deeplinks to the parent event page, so we link to events directly. Series markets are separate Polymarket events.",
+  "401869417": {
+    "homeTeam": "ORL",
+    "awayTeam": "DET",
+    "eventUrl": "https://polymarket.com/event/nba-det-orl-2026-05-01",
+    "seriesUrl": "https://polymarket.com/event/nba-playoffs-who-will-win-series-pistons-vs-magic",
+    "markets": [
+      { "id": "ml-det", "type": "Moneyline", "side": "DET", "label": "Pistons to win", "price": 0.595, "url": "https://polymarket.com/event/nba-det-orl-2026-05-01" },
+      { "id": "ml-orl", "type": "Moneyline", "side": "ORL", "label": "Magic to win", "price": 0.405, "url": "https://polymarket.com/event/nba-det-orl-2026-05-01" },
+      { "id": "spread", "type": "Spread", "side": "DET -3.5", "label": "Pistons cover -3.5", "price": 0.495, "url": "https://polymarket.com/event/nba-det-orl-2026-05-01" },
+      { "id": "total", "type": "Total", "side": "Over 210.5", "label": "Over 210.5 total points", "price": 0.505, "url": "https://polymarket.com/event/nba-det-orl-2026-05-01" },
+      { "id": "first-half", "type": "1H Moneyline", "side": "DET 1H", "label": "Pistons lead at half", "price": 0.565, "url": "https://polymarket.com/event/nba-det-orl-2026-05-01" },
+      { "id": "cunningham-pts", "type": "Player Points", "side": "Cunningham o28.5", "label": "Cunningham over 28.5 pts", "price": 0.545, "url": "https://polymarket.com/event/nba-det-orl-2026-05-01" },
+      { "id": "banchero-pts", "type": "Player Points", "side": "Banchero o23.5", "label": "Banchero over 23.5 pts", "price": 0.525, "url": "https://polymarket.com/event/nba-det-orl-2026-05-01" },
+      { "id": "series", "type": "Series", "side": "ORL series", "label": "Magic to win series", "price": 0.66, "url": "https://polymarket.com/event/nba-playoffs-who-will-win-series-pistons-vs-magic" }
+    ]
+  },
+  "401869381": {
+    "homeTeam": "TOR",
+    "awayTeam": "CLE",
+    "eventUrl": "https://polymarket.com/event/nba-cle-tor-2026-05-01",
+    "seriesUrl": "https://polymarket.com/event/nba-playoffs-who-will-win-series-raptors-vs-cavaliers",
+    "markets": [
+      { "id": "ml-cle", "type": "Moneyline", "side": "CLE", "label": "Cavaliers to win", "price": 0.645, "url": "https://polymarket.com/event/nba-cle-tor-2026-05-01" },
+      { "id": "ml-tor", "type": "Moneyline", "side": "TOR", "label": "Raptors to win", "price": 0.355, "url": "https://polymarket.com/event/nba-cle-tor-2026-05-01" },
+      { "id": "spread", "type": "Spread", "side": "CLE -3.5", "label": "Cavaliers cover -3.5", "price": 0.555, "url": "https://polymarket.com/event/nba-cle-tor-2026-05-01" },
+      { "id": "total", "type": "Total", "side": "Over 219.5", "label": "Over 219.5 total points", "price": 0.485, "url": "https://polymarket.com/event/nba-cle-tor-2026-05-01" },
+      { "id": "first-half", "type": "1H Moneyline", "side": "CLE 1H", "label": "Cavaliers lead at half", "price": 0.59, "url": "https://polymarket.com/event/nba-cle-tor-2026-05-01" },
+      { "id": "mitchell-pts", "type": "Player Points", "side": "Mitchell o27.5", "label": "Mitchell over 27.5 pts", "price": 0.41, "url": "https://polymarket.com/event/nba-cle-tor-2026-05-01" },
+      { "id": "barnes-pts", "type": "Player Points", "side": "Barnes o20.5", "label": "Scottie Barnes over 20.5 pts", "price": 0.565, "url": "https://polymarket.com/event/nba-cle-tor-2026-05-01" },
+      { "id": "series", "type": "Series", "side": "CLE series", "label": "Cavaliers to win series", "price": 0.85, "url": "https://polymarket.com/event/nba-playoffs-who-will-win-series-raptors-vs-cavaliers" }
+    ]
+  },
+  "401869409": {
+    "homeTeam": "HOU",
+    "awayTeam": "LAL",
+    "eventUrl": "https://polymarket.com/event/nba-lal-hou-2026-05-01",
+    "seriesUrl": "https://polymarket.com/event/nba-playoffs-who-will-win-series-lakers-vs-rockets",
+    "markets": [
+      { "id": "ml-hou", "type": "Moneyline", "side": "HOU", "label": "Rockets to win", "price": 0.605, "url": "https://polymarket.com/event/nba-lal-hou-2026-05-01" },
+      { "id": "ml-lal", "type": "Moneyline", "side": "LAL", "label": "Lakers to win", "price": 0.395, "url": "https://polymarket.com/event/nba-lal-hou-2026-05-01" },
+      { "id": "spread", "type": "Spread", "side": "HOU -3.5", "label": "Rockets cover -3.5", "price": 0.515, "url": "https://polymarket.com/event/nba-lal-hou-2026-05-01" },
+      { "id": "total", "type": "Total", "side": "Over 206.5", "label": "Over 206.5 total points", "price": 0.445, "url": "https://polymarket.com/event/nba-lal-hou-2026-05-01" },
+      { "id": "first-half", "type": "1H Moneyline", "side": "HOU 1H", "label": "Rockets lead at half", "price": 0.575, "url": "https://polymarket.com/event/nba-lal-hou-2026-05-01" },
+      { "id": "lebron-pts", "type": "Player Points", "side": "LeBron o22.5", "label": "LeBron over 22.5 pts", "price": 0.475, "url": "https://polymarket.com/event/nba-lal-hou-2026-05-01" },
+      { "id": "sengun-pts", "type": "Player Points", "side": "Sengün o20.5", "label": "Sengün over 20.5 pts", "price": 0.61, "url": "https://polymarket.com/event/nba-lal-hou-2026-05-01" },
+      { "id": "series", "type": "Series", "side": "LAL series", "label": "Lakers to win series", "price": 0.78, "url": "https://polymarket.com/event/nba-playoffs-who-will-win-series-lakers-vs-rockets" }
+    ]
+  }
+}
