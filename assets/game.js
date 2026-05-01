@@ -19,7 +19,67 @@ const gameId = params.get("id") || "401869381";
 mountPbp(document.getElementById("panel-pbp"), { gameId });
 mountBoxscore(document.getElementById("panel-boxscore"), { gameId });
 mountMarkets(document.getElementById("panel-markets"), { gameId });
-mountChat(document.getElementById("game-chat"), { gameId });
+
+// Mount the chat in whichever container is appropriate for the viewport.
+// Mobile gets a slide-up sheet, desktop gets the inline right rail.
+const isMobile = () => window.matchMedia("(max-width: 768px)").matches;
+const desktopChatHost = document.getElementById("game-chat");
+const sheetChatHost = document.getElementById("chat-sheet-mount");
+const sheet = document.getElementById("chat-sheet");
+
+function ensureChatMounted() {
+  const target = isMobile() ? sheetChatHost : desktopChatHost;
+  if (target.dataset.mounted === "1") return;
+  // Build a fresh `.gc-chat` container inside the chosen host.
+  const wrapper = isMobile() ? sheetChatHost : desktopChatHost;
+  if (wrapper === sheetChatHost) {
+    // Reset any previous content.
+    wrapper.innerHTML = "";
+    const aside = document.createElement("aside");
+    aside.className = "gc-chat";
+    aside.id = "game-chat-mobile";
+    wrapper.appendChild(aside);
+    mountChat(aside, { gameId });
+  } else {
+    mountChat(desktopChatHost, { gameId });
+  }
+  target.dataset.mounted = "1";
+}
+
+ensureChatMounted();
+window.addEventListener("resize", () => {
+  // Re-evaluate mount target when crossing the breakpoint.
+  if (isMobile() && !sheetChatHost.dataset.mounted) {
+    ensureChatMounted();
+  } else if (!isMobile() && !desktopChatHost.dataset.mounted) {
+    ensureChatMounted();
+  }
+});
+
+// Bottom-tab Chat button opens the slide-up sheet on mobile.
+const chatBtn = document.querySelector('.tabbar__chat-btn[data-tab="chat"]');
+const closeBtn = document.getElementById("chat-sheet-close");
+chatBtn?.addEventListener("click", () => {
+  ensureChatMounted();
+  sheet.classList.add("is-open");
+  document.body.style.overflow = "hidden";
+});
+closeBtn?.addEventListener("click", () => {
+  sheet.classList.remove("is-open");
+  document.body.style.overflow = "";
+});
+sheet.addEventListener("click", (e) => {
+  if (e.target === sheet) {
+    sheet.classList.remove("is-open");
+    document.body.style.overflow = "";
+  }
+});
+
+// New-message dot on the bottom-tab Chat icon.
+window.addEventListener("fake:chat", () => {
+  if (!sheet.classList.contains("is-open")) chatBtn?.classList.add("has-new");
+});
+chatBtn?.addEventListener("click", () => chatBtn.classList.remove("has-new"));
 
 // Tabs.
 const tabs = document.querySelectorAll(".gc__tab");

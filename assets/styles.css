@@ -40,6 +40,13 @@ html, body {
   background: var(--bg-page);
   font-feature-settings: "tnum" 1; /* tabular nums for scores */
   -webkit-font-smoothing: antialiased;
+  -webkit-tap-highlight-color: transparent;
+  overscroll-behavior-y: none;
+}
+
+/* Safe-area padding for notch/home-indicator */
+body {
+  padding-bottom: env(safe-area-inset-bottom, 0);
 }
 
 a {
@@ -558,7 +565,7 @@ img {
   padding: 16px 20px;
   box-shadow: var(--shadow);
   display: grid;
-  grid-template-columns: 100px 1fr 240px 100px;
+  grid-template-columns: 90px 1fr 200px 220px;
   gap: 16px;
   align-items: center;
   cursor: pointer;
@@ -645,15 +652,37 @@ img {
   font-size: 11px;
 }
 
-.sb-card__leader {
-  display: flex;
-  justify-content: space-between;
-  gap: 8px;
+.sb-card__leaders-grid {
+  display: grid;
+  grid-template-columns: 56px 1fr auto;
+  gap: 4px 8px;
+  align-items: baseline;
 }
 
-.sb-card__leader b {
+.sb-card__leader-cat {
+  color: var(--text-mute);
+  font-weight: 700;
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.sb-card__leader-player {
+  min-width: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.sb-card__leader-player b {
   color: var(--text-dark);
   font-weight: 600;
+}
+
+.sb-card__leader-stat {
+  font-weight: 700;
+  color: var(--text-dark);
+  font-variant-numeric: tabular-nums;
 }
 
 /* ===== Game Center ===== */
@@ -1444,4 +1473,272 @@ img {
   background: var(--green);
   margin-right: 4px;
   animation: pulse 1.6s infinite;
+}
+
+/* ==========================================================================
+   MOBILE — bottom tab bar, slide-up chat sheet, compact ticker, native feel
+   ========================================================================== */
+
+/* Bottom tab bar — visible only on mobile */
+.tabbar {
+  display: none;
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: calc(60px + env(safe-area-inset-bottom, 0));
+  padding-bottom: env(safe-area-inset-bottom, 0);
+  background: var(--bg-dark);
+  border-top: 1px solid var(--border-dark);
+  z-index: 90;
+  justify-content: space-around;
+  align-items: stretch;
+}
+
+.tabbar a {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  color: var(--text-mute-light);
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  text-decoration: none;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.tabbar a.is-active { color: var(--teal); }
+
+.tabbar svg {
+  width: 22px;
+  height: 22px;
+}
+
+.tabbar__chat-btn {
+  background: none;
+  border: none;
+  font-family: inherit;
+  font-size: 10px;
+  font-weight: 600;
+  color: var(--text-mute-light);
+  position: relative;
+}
+
+.tabbar__chat-btn .tabbar__chat-dot {
+  position: absolute;
+  top: 8px;
+  right: 28%;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--teal);
+  display: none;
+}
+
+.tabbar__chat-btn.has-new .tabbar__chat-dot { display: block; }
+
+/* Mobile chat sheet — slides up from bottom */
+.chat-sheet {
+  display: none;
+  position: fixed;
+  inset: 0;
+  z-index: 200;
+  background: rgba(0, 0, 0, 0.5);
+  animation: fadein 0.15s ease-out;
+}
+
+.chat-sheet.is-open { display: block; }
+
+.chat-sheet__inner {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 85vh;
+  background: var(--bg-card);
+  border-radius: 18px 18px 0 0;
+  display: flex;
+  flex-direction: column;
+  animation: slideup 0.2s ease-out;
+}
+
+.chat-sheet__handle {
+  width: 36px;
+  height: 4px;
+  background: var(--border);
+  border-radius: 2px;
+  margin: 8px auto 0;
+  flex-shrink: 0;
+}
+
+.chat-sheet__close {
+  position: absolute;
+  top: 6px;
+  right: 12px;
+  background: none;
+  border: none;
+  font-size: 22px;
+  color: var(--text-mute);
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+}
+
+@keyframes fadein {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes slideup {
+  from { transform: translateY(100%); }
+  to { transform: translateY(0); }
+}
+
+@media (max-width: 768px) {
+  body { font-size: 14px; }
+
+  /* Hide top nav links on mobile — replaced by bottom tab bar */
+  .nav { padding: 0 14px; height: 52px; gap: 12px; }
+  .nav__links { display: none; }
+  .nav__logo { font-size: 16px; }
+  .nav__logo-mark { width: 22px; height: 22px; }
+  .nav__identity { font-size: 11px; }
+
+  /* Tab bar takes over */
+  .tabbar { display: flex; }
+
+  /* Reserve space at the bottom for the tab bar */
+  body { padding-bottom: calc(60px + env(safe-area-inset-bottom, 0)); }
+
+  /* Compact ticker */
+  .ticker { top: 52px; padding: 6px 0; }
+  .ticker__inner { padding: 0 12px; gap: 6px; }
+  .ticker-card {
+    min-width: 168px;
+    padding: 6px 10px;
+    grid-template-columns: auto 1fr auto;
+    gap: 4px 8px;
+  }
+  .ticker-card__status { font-size: 9px; }
+  .ticker-card__abbr { font-size: 12px; }
+  .ticker-card__sub { font-size: 10px; }
+  .ticker-card__score { font-size: 14px; }
+  .ticker-card__logo { width: 18px; height: 18px; }
+
+  /* Page padding */
+  .page { padding: 16px 12px; }
+  .page-title { font-size: 18px; }
+
+  /* Tonight cards: full width and tighter */
+  .tonight { grid-template-columns: 1fr; gap: 12px; }
+  .tonight-card { padding: 14px; }
+  .tonight-card__matchup { gap: 8px; margin-bottom: 12px; }
+  .tonight-card__logo { width: 44px; height: 44px; }
+  .tonight-card__team-name { font-size: 12px; text-align: center; }
+  .tonight-card__story { padding: 6px 10px; font-size: 11px; }
+
+  /* Bracket */
+  .bracket { padding: 14px; border-radius: 10px; }
+  .bracket__header { flex-direction: column; align-items: flex-start; gap: 8px; }
+  .bracket__title { font-size: 16px; }
+  .bracket__round-select select { padding: 6px 10px; font-size: 13px; }
+  .bracket__grid { grid-template-columns: 1fr; gap: 16px; }
+  .series-card { padding: 8px 10px; }
+  .series-card__team { font-size: 12px; }
+  .series-card__status { font-size: 10px; }
+
+  /* Scoreboard cards */
+  .sb-card {
+    grid-template-columns: 1fr;
+    padding: 12px 14px;
+    gap: 10px;
+  }
+  .sb-card__teams img { width: 24px; height: 24px; }
+  .sb-card__team-name { font-size: 13px; }
+  .sb-card__team-score { font-size: 16px; }
+  .sb-card__linescore { font-size: 10px; gap: 2px; }
+  .sb-card__leaders { font-size: 11px; }
+
+  /* Game Center: full-width main, no inline sidebar */
+  .gc {
+    grid-template-columns: 1fr;
+    gap: 0;
+    padding: 0;
+    margin: 0;
+    max-width: 100%;
+  }
+  .gc__main { border-radius: 0; box-shadow: none; }
+  .gc__header {
+    padding: 14px 14px 18px;
+    grid-template-columns: 1fr auto 1fr;
+    gap: 12px;
+  }
+  .gc__team-logo { width: 44px; height: 44px; }
+  .gc__team-name { font-size: 12px; line-height: 1.2; }
+  .gc__team-sub { font-size: 10px; }
+  .gc__score { font-size: 32px; gap: 12px; }
+  .gc__score-sep { font-size: 24px; }
+  .gc__status { font-size: 11px; }
+  .gc__sparkline { height: 18px; }
+
+  /* Tabs: horizontally scrollable */
+  .gc__tabs {
+    overflow-x: auto;
+    scrollbar-width: none;
+    padding: 0 8px;
+  }
+  .gc__tabs::-webkit-scrollbar { display: none; }
+  .gc__tab { padding: 12px 12px; font-size: 13px; flex-shrink: 0; }
+
+  .gc__panels { padding: 12px 14px 24px; }
+
+  /* Hide chat sidebar in normal layout — surfaced via slide-up sheet */
+  .gc-chat { display: none; }
+
+  /* Play cards: bigger touch targets */
+  .play-card { padding: 12px; grid-template-columns: 56px 1fr; gap: 6px 10px; }
+  .play-card__time { font-size: 10px; }
+  .play-card__text { font-size: 13px; }
+  .play-card__score-pill { font-size: 11px; }
+
+  .reaction { padding: 6px 10px; font-size: 14px; }
+  .reaction-add { padding: 6px 12px; }
+
+  .comments-toggle { font-size: 13px; padding: 4px 0; }
+
+  .comment-input input { padding: 10px 12px; font-size: 14px; }
+  .comment-input button { padding: 10px 14px; font-size: 13px; }
+
+  /* Box score table — wrap, smaller font, horizontal scroll */
+  .bs-team { margin-bottom: 18px; overflow-x: auto; }
+  .bs-table { min-width: 560px; font-size: 11px; }
+
+  /* Markets cards: single column */
+  .markets-grid { grid-template-columns: 1fr; gap: 10px; }
+  .market-card { padding: 12px; }
+  .market-card__price { font-size: 24px; }
+
+  .wp-chart { height: 280px; }
+
+  /* Identity modal: full-width sheet style */
+  .modal { width: calc(100% - 24px); max-width: 380px; padding: 20px; }
+}
+
+/* Always-mobile: render the chat sheet inside its own sticky container */
+@media (max-width: 768px) {
+  .chat-sheet__inner .gc-chat {
+    display: flex;
+    height: 100%;
+    border-radius: 18px 18px 0 0;
+    box-shadow: none;
+    position: static;
+    flex: 1;
+    min-height: 0;
+  }
+  .chat-sheet__inner .gc-chat__header {
+    padding-top: 18px;
+  }
 }

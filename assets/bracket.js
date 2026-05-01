@@ -9,7 +9,7 @@ let data = null;
 let currentRound = "r1";
 
 export async function mountBracket(rootEl) {
-  data = await (await fetch("data/bracket.json")).json();
+  data = await (await fetch("data/bracket.json", { cache: "no-cache" })).json();
   render(rootEl);
 }
 
@@ -116,13 +116,13 @@ function seriesCard(s, finals = false) {
 }
 
 function teamLogo(abbr) {
-  const tbd = !abbr || abbr === "TBD" || abbr.endsWith("?");
+  const tbd = !abbr || abbr === "TBD" || abbr.endsWith("?") || abbr.includes("/");
   if (tbd) return `<span class="series-card__team-logo series-card__team-logo--tbd" aria-hidden="true">?</span>`;
   return `<img class="series-card__team-logo" src="${TEAM_LOGO(abbr)}" alt="${escape(abbr)}" />`;
 }
 
 function displayName(abbr, name) {
-  if (abbr && abbr.endsWith("?")) return name; // projected slot
-  if (abbr === "TBD") return name;
+  if (!abbr) return name;
+  if (abbr.endsWith("?") || abbr === "TBD" || abbr.includes("/")) return name; // projected slot
   return abbr;
 }

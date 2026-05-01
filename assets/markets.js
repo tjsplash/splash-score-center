@@ -19,7 +19,7 @@ let eventUrl = null;
 export async function mountMarkets(el, opts) {
   rootEl = el;
   gameId = opts.gameId;
-  const all = await (await fetch("data/markets.json")).json();
+  const all = await (await fetch("data/markets.json", { cache: "no-cache" })).json();
   const cfg = all[gameId];
   if (!cfg) {
     rootEl.innerHTML = `<p class="muted">No markets configured for this game.</p>`;

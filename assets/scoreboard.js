@@ -93,21 +93,28 @@ async function hydrateCard(ev) {
       }))
     );
     leadersEl.innerHTML = leaders.length
-      ? leaders.slice(0, 4).map(l => `
-        <div class="sb-card__leader">
-          <span>${escape(l.cat)}</span>
-          <span><b>${escape(l.name)}</b> <span class="muted">(${escape(l.team)})</span> ${escape(l.stat)}</span>
-        </div>`).join("")
+      ? `<div class="sb-card__leaders-grid">
+          ${leaders.slice(0, 4).map(l => `
+            <span class="sb-card__leader-cat">${escape(l.cat)}</span>
+            <span class="sb-card__leader-player"><b>${escape(l.name)}</b> <span class="muted">(${escape(l.team)})</span></span>
+            <span class="sb-card__leader-stat">${escape(l.stat)}</span>
+          `).join("")}
+        </div>`
       : `<span class="muted">No leaders yet.</span>`;
     // Line score.
     if (lineEl) {
-      const homeLs = summary.boxscore?.teams?.[1]?.statistics; // not always populated mid-game
       const awayComp = summary.header?.competitions?.[0]?.competitors;
       if (awayComp) {
         const home = awayComp.find(c => c.homeAway === "home");
         const away = awayComp.find(c => c.homeAway === "away");
-        const homeLine = (home?.linescores || []).map(s => Math.floor(s.value));
-        const awayLine = (away?.linescores || []).map(s => Math.floor(s.value));
+        // ESPN sometimes returns linescore entries with null/undefined values for
+        // upcoming or not-yet-reported quarters — coerce to a sentinel.
+        const toCells = (arr) => (arr || []).map(s => {
+          const v = s?.value;
+          return (v === null || v === undefined || isNaN(Number(v))) ? null : Math.floor(Number(v));
+        });
+        const homeLine = toCells(home?.linescores);
+        const awayLine = toCells(away?.linescores);
         if (homeLine.length || awayLine.length) {
           const max = Math.max(homeLine.length, awayLine.length, 4);
           const heads = Array.from({ length: max }, (_, i) => `<span class="qhead">Q${i + 1}</span>`).join("");
