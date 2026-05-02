@@ -1,7 +1,7 @@
 // Shared bootstrap: nav, sticky ticker, identity surface in header.
 
-import { fetchScoreboard, normalizeEvent, pollScoreboard, pollMultiSportScoreboard, TONIGHT_EVENT_IDS, LEAGUES } from "./espn.js?v2026050109";
-import { getIdentity } from "./identity.js?v2026050109";
+import { fetchScoreboard, normalizeEvent, pollScoreboard, pollMultiSportScoreboard, TONIGHT_EVENT_IDS, LEAGUES } from "./espn.js?v2026050201";
+import { getIdentity } from "./identity.js?v2026050201";
 
 // Single shared event bus.
 export const bus = new EventTarget();
@@ -56,9 +56,31 @@ function renderIdentityBadge() {
   } else {
     slot.innerHTML = `
       <span class="nav__identity-name">${escape(id.name)}</span>
-      ${id.team ? `<span class="comment__team" style="background:#${teamHex(id.team)}">${id.team}</span>` : ""}
+      ${teamChipsHtml(id)}
     `;
   }
+}
+
+// Render all team chips for an identity or post. Accepts either:
+//  • { teams: { nba: "BOS", mlb: "NYY" } }   (multi-sport)
+//  • { teams: [{sport, abbr}, ...] }         (legacy array shape)
+//  • { team: "BOS" }                          (legacy single-team)
+export function teamChipsHtml(holder) {
+  if (!holder) return "";
+  let chips = [];
+  if (holder.teams && Array.isArray(holder.teams)) {
+    chips = holder.teams;
+  } else if (holder.teams && typeof holder.teams === "object") {
+    chips = Object.entries(holder.teams)
+      .filter(([_, abbr]) => abbr)
+      .map(([sport, abbr]) => ({ sport, abbr }));
+  } else if (holder.team) {
+    chips = [{ sport: "nba", abbr: holder.team }];
+  }
+  if (!chips.length) return "";
+  return chips.map(c =>
+    `<span class="comment__team" style="background:#${teamHex(c.abbr, c.sport)}" title="${escape((c.sport || "").toUpperCase())} fan">${escape(c.abbr)}</span>`
+  ).join("");
 }
 
 // ---- Multi-sport score ticker ----
@@ -206,15 +228,53 @@ export function spawnFloatingEmoji(emoji, x, y) {
 
 // ---- Helpers ----
 
+// Per-sport team primary-color lookup. NBA values are the canonical primary
+// hex from each team's brand kit; the other leagues are seeded with common
+// teams a fan might select. Fallback is a neutral gray.
 const TEAM_HEX = {
-  DET: "1d42ba", ORL: "0150b5", CLE: "860038", TOR: "ce1141",
-  LAL: "552583", HOU: "ce1141", BOS: "007a33", PHI: "006bb6",
-  MIL: "00471b", NYK: "006bb6", OKC: "007ac1", MEM: "5d76a9",
-  DEN: "0e2240", GSW: "1d428a", MIN: "0c2340", DAL: "00538c",
-  MIA: "98002e", CHI: "ce1141", ATL: "e03a3e",
+  nba: {
+    DET: "1d42ba", ORL: "0150b5", CLE: "860038", TOR: "ce1141",
+    LAL: "552583", HOU: "ce1141", BOS: "007a33", PHI: "006bb6",
+    MIL: "00471b", NYK: "006bb6", OKC: "007ac1", MEM: "5d76a9",
+    DEN: "0e2240", GSW: "1d428a", MIN: "0c2340", DAL: "00538c",
+    MIA: "98002e", CHI: "ce1141", ATL: "e03a3e", PHX: "1d1160",
+    SAS: "000000", POR: "e03a3e",
+  },
+  nfl: {
+    KC: "e31837", BUF: "00338d", BAL: "241773", CIN: "fb4f14",
+    PIT: "ffb612", MIA: "008e97", NE: "002244",   NYJ: "125740",
+    PHI: "004c54", DAL: "003594", NYG: "0b2265",  WAS: "5a1414",
+    GB:  "203731", MIN: "4f2683", DET: "0076b6",  CHI: "0b162a",
+    SF:  "aa0000", SEA: "002244", LAR: "003594",  ARI: "97233f",
+    TB:  "d50a0a", ATL: "a71930", NO:  "d3bc8d",  CAR: "0085ca",
+    HOU: "03202f", IND: "002c5f", JAX: "006778",  TEN: "4b92db",
+    DEN: "fb4f14", LAC: "0080c6", LV:  "000000",  CLE: "311d00",
+  },
+  mlb: {
+    NYY: "003087", BOS: "bd3039", TOR: "134a8e", TB:  "092c5c",
+    BAL: "df4601", CLE: "00385d", DET: "0c2340", CHW: "27251f",
+    KC:  "004687", MIN: "002b5c", HOU: "002d62", TEX: "003278",
+    SEA: "0c2c56", ATH: "003831", LAA: "ba0021", ATL: "ce1141",
+    PHI: "e81828", NYM: "002d72", WSH: "ab0003", MIA: "000000",
+    CHC: "0e3386", MIL: "12284b", STL: "c41e3a", CIN: "c6011f",
+    PIT: "fdb827", LAD: "005a9c", SF:  "fd5a1e", SD:  "2f241d",
+    ARI: "a71930", COL: "33006f",
+  },
+  nhl: {
+    BOS: "ffb81c", TOR: "00205b", FLA: "041e42", TB:  "002868",
+    BUF: "002654", MTL: "af1e2d", OTT: "c52032", DET: "ce1126",
+    NYR: "0038a8", NYI: "00539b", NJ:  "ce1126", PHI: "f74902",
+    PIT: "000000", WSH: "041e42", CAR: "cc0000", CBJ: "002654",
+    DAL: "006847", COL: "6f263d", MIN: "154734", STL: "002f87",
+    NSH: "ffb81c", WPG: "041e42", CHI: "cf0a2c", VGK: "b4975a",
+    EDM: "041e42", VAN: "00205b", CGY: "c8102e", LA:  "111111",
+    SJ:  "006d75", ANA: "f47a38", SEA: "001628", UTA: "6cace4",
+  },
 };
 
-export function teamHex(abbr) { return TEAM_HEX[abbr] || "6b7280"; }
+export function teamHex(abbr, sport = "nba") {
+  return TEAM_HEX[sport]?.[abbr] || TEAM_HEX.nba[abbr] || "6b7280";
+}
 
 export function escape(s) {
   return String(s).replace(/[&<>"]/g, c => ({

@@ -2,22 +2,23 @@
 // selected league, and a row of action buttons at the bottom that surface
 // bracket / standings / season leaders inline (ESPN-style).
 
-import { renderNav, mountTicker, escape, teamHex } from "./script.js?v2026050109";
+import { renderNav, mountTicker, escape, teamHex } from "./script.js?v2026050201";
 import {
   fetchScoreboard, fetchSummary, normalizeEvent, pollScoreboard, LEAGUES,
-} from "./espn.js?v2026050109";
+} from "./espn.js?v2026050201";
 import {
   matchEspnToSplash, popularPropsForGame, playerInitials,
-} from "./quickpicks.js?v2026050109";
+} from "./quickpicks.js?v2026050201";
 
-const HOME_LEAGUES = ["nba", "mlb", "nhl"];
+const HOME_LEAGUES = ["nba", "mlb", "nhl", "pga"];
 
 // Sport-specific copy for the page subtitle and the recap CTA. Keeps the
 // surface honest — a "Game 6 elimination" line is wrong for an MLB Tuesday.
 const SPORT_COPY = {
-  nba: { kicker: "NBA · 2025-26 Playoffs", recapVerb: "Recap" },
-  mlb: { kicker: "MLB · Regular Season",    recapVerb: "Recap" },
+  nba: { kicker: "NBA · 2025-26 Playoffs",     recapVerb: "Recap" },
+  mlb: { kicker: "MLB · Regular Season",       recapVerb: "Recap" },
   nhl: { kicker: "NHL · Stanley Cup Playoffs", recapVerb: "Recap" },
+  pga: { kicker: "PGA Tour · This Week",       recapVerb: "Round" },
 };
 
 // Storylines are NBA-playoff specific and keyed by event id. For other sports
@@ -43,6 +44,9 @@ const ACTIONS = {
     { kind: "standings", label: "Standings",       sub: "Conference rankings",      icon: "📊" },
     { kind: "stats",     label: "Season leaders",  sub: "Goals & assists",          icon: "📈" },
   ],
+  pga: [
+    { kind: "stats",     label: "Tour leaders",    sub: "FedEx Cup & money list",   icon: "🏆" },
+  ],
 };
 
 // ---- Boot ----
@@ -58,12 +62,15 @@ const standingsBody = document.getElementById("standings-body");
 const statsPanel = document.getElementById("stats-panel");
 const statsBody = document.getElementById("stats-body");
 const subEl = document.getElementById("home-sub");
+const titleEl = document.getElementById("home-title");
+const dateEl = document.getElementById("home-date");
 
 const STORAGE_KEY = "ssc:home:league";
 const persisted = (() => {
   try { return sessionStorage.getItem(STORAGE_KEY); } catch { return null; }
 })();
 let activeLeague = HOME_LEAGUES.includes(persisted) ? persisted : "nba";
+let activeDate = todayYYYYMMDD();
 let stopPoll = null;
 
 function persistLeague(lg) {
@@ -97,6 +104,7 @@ filterEl.addEventListener("click", (e) => {
 
 renderSubtitle();
 renderActions();
+mountDateScroller();
 startPolling();
 
 actionsEl.addEventListener("click", (e) => {
@@ -128,7 +136,104 @@ document.querySelectorAll("[data-close-panel]").forEach(el => {
 
 function renderSubtitle() {
   const c = SPORT_COPY[activeLeague];
-  subEl.innerHTML = `<span class="home-sub__kicker">${c.kicker}</span> · Updates every 15 seconds. Recaps appear automatically when games go final.`;
+  const dateMod = activeDate === todayYYYYMMDD()
+    ? "Updates every 15 seconds. Recaps appear automatically when games go final."
+    : `Browsing ${prettyDate(activeDate)} · scores final.`;
+  subEl.innerHTML = `<span class="home-sub__kicker">${c.kicker}</span> · ${dateMod}`;
+  if (titleEl) {
+    const isPga = activeLeague === "pga";
+    const isToday = activeDate === todayYYYYMMDD();
+    titleEl.firstChild.nodeValue = isPga
+      ? "This week's tournament "
+      : isToday ? "Tonight's games " : `Games on ${prettyDate(activeDate, "short")} `;
+  }
+}
+
+// ---- Date scroller ----
+
+function mountDateScroller() {
+  if (!dateEl) return;
+  dateEl.innerHTML = `
+    <div class="home-date__inner">
+      <button class="home-date__arrow" data-step="-1" aria-label="Previous day">‹</button>
+      <button class="home-date__pill" type="button" id="home-date-pill">
+        <span class="home-date__rel" id="home-date-rel"></span>
+        <span class="home-date__abs" id="home-date-abs"></span>
+      </button>
+      <button class="home-date__arrow" data-step="1" aria-label="Next day">›</button>
+      <input type="date" class="home-date__input" id="home-date-input" />
+    </div>
+    <button class="home-date__today" type="button" id="home-date-today" hidden>Jump to today</button>
+  `;
+  const input = dateEl.querySelector("#home-date-input");
+  const pill = dateEl.querySelector("#home-date-pill");
+  const todayBtn = dateEl.querySelector("#home-date-today");
+
+  dateEl.addEventListener("click", (e) => {
+    const arrow = e.target.closest("[data-step]");
+    if (arrow) {
+      shiftActiveDate(parseInt(arrow.dataset.step, 10));
+      return;
+    }
+    if (e.target.closest("#home-date-pill")) {
+      input.showPicker?.();
+    }
+    if (e.target.closest("#home-date-today")) {
+      activeDate = todayYYYYMMDD();
+      onDateChanged();
+    }
+  });
+  input.addEventListener("change", () => {
+    const v = input.value;
+    if (!v) return;
+    activeDate = v.replaceAll("-", "");
+    onDateChanged();
+  });
+  renderDateScroller();
+}
+
+function shiftActiveDate(days) {
+  const d = ymdToDate(activeDate);
+  d.setDate(d.getDate() + days);
+  activeDate = dateToYMD(d);
+  onDateChanged();
+}
+
+function onDateChanged() {
+  renderDateScroller();
+  renderSubtitle();
+  startPolling();
+}
+
+function renderDateScroller() {
+  if (!dateEl) return;
+  const today = todayYYYYMMDD();
+  const d = ymdToDate(activeDate);
+  const diff = Math.round((d.getTime() - ymdToDate(today).getTime()) / (1000 * 60 * 60 * 24));
+  const rel = diff === 0 ? "TODAY" : diff === -1 ? "YESTERDAY" : diff === 1 ? "TOMORROW"
+    : d.toLocaleDateString([], { weekday: "short" }).toUpperCase();
+  dateEl.querySelector("#home-date-rel").textContent = rel;
+  dateEl.querySelector("#home-date-abs").textContent = prettyDate(activeDate);
+  const input = dateEl.querySelector("#home-date-input");
+  if (input) input.value = `${activeDate.slice(0,4)}-${activeDate.slice(4,6)}-${activeDate.slice(6,8)}`;
+  const todayBtn = dateEl.querySelector("#home-date-today");
+  if (todayBtn) todayBtn.hidden = activeDate === today;
+}
+
+function todayYYYYMMDD() { return dateToYMD(new Date()); }
+
+function dateToYMD(d) {
+  return `${d.getFullYear()}${String(d.getMonth() + 1).padStart(2, "0")}${String(d.getDate()).padStart(2, "0")}`;
+}
+
+function ymdToDate(ymd) {
+  return new Date(parseInt(ymd.slice(0,4), 10), parseInt(ymd.slice(4,6), 10) - 1, parseInt(ymd.slice(6,8), 10));
+}
+
+function prettyDate(ymd, format = "long") {
+  const d = ymdToDate(ymd);
+  if (format === "short") return d.toLocaleDateString([], { month: "short", day: "numeric" });
+  return d.toLocaleDateString([], { month: "long", day: "numeric", year: "numeric" });
 }
 
 // ---- Tonight's games ----
@@ -137,7 +242,10 @@ function startPolling() {
   if (stopPoll) stopPoll();
   tonightEl.innerHTML = skeletonCards(3);
   refreshTonight();
-  stopPoll = pollScoreboard(() => refreshTonight(), 15000, activeLeague);
+  // Only poll for live updates when the user is browsing today.
+  if (activeDate === todayYYYYMMDD()) {
+    stopPoll = pollScoreboard(() => refreshTonight(), 15000, activeLeague);
+  }
 }
 
 function skeletonCards(n) {
@@ -168,13 +276,18 @@ function skeletonCards(n) {
 const summaryCache = new Map();
 
 async function refreshTonight() {
+  // Golf has its own card layout (tournament leaderboard, not a games list).
+  if (activeLeague === "pga") {
+    refreshPga();
+    return;
+  }
   try {
-    const data = await fetchScoreboard(activeLeague);
+    const data = await fetchScoreboard(activeLeague, activeDate);
     let events = (data.events || []).map(ev => normalizeEvent(ev, activeLeague));
     let usingYesterday = false;
-    // Empty-state fallback: many sports (MLB on a Mon/Thu, NHL in summer)
-    // have nothing scheduled. Surface yesterday's recaps instead of a void.
-    if (!events.length) {
+    // Empty-state fallback (only when looking at today): if nothing's
+    // scheduled, surface yesterday's recaps instead of a void.
+    if (!events.length && activeDate === todayYYYYMMDD()) {
       const ymd = yesterdayYYYYMMDD();
       try {
         const y = await fetchScoreboard(activeLeague, ymd);
@@ -183,7 +296,7 @@ async function refreshTonight() {
       } catch { /* fall through */ }
     }
     if (!events.length) {
-      tonightEl.innerHTML = `<p class="muted">No ${LEAGUES[activeLeague].label} games on the schedule today or yesterday.</p>`;
+      tonightEl.innerHTML = `<p class="muted">No ${LEAGUES[activeLeague].label} games on ${prettyDate(activeDate)}.</p>`;
       return;
     }
     events.sort((a, b) => {
@@ -367,7 +480,65 @@ function qpPropRowHtml(p, league) {
 function yesterdayYYYYMMDD() {
   const d = new Date();
   d.setDate(d.getDate() - 1);
-  return `${d.getFullYear()}${String(d.getMonth() + 1).padStart(2, "0")}${String(d.getDate()).padStart(2, "0")}`;
+  return dateToYMD(d);
+}
+
+// ---- Golf (PGA) — tournament leaderboard preview ----
+
+async function refreshPga() {
+  try {
+    const data = await fetchScoreboard("pga", activeDate);
+    const events = (data.events || []);
+    if (!events.length) {
+      tonightEl.innerHTML = `<p class="muted">No PGA tournament for ${prettyDate(activeDate)}.</p>`;
+      return;
+    }
+    tonightEl.innerHTML = events.map(pgaTournamentCardHtml).join("");
+  } catch (e) {
+    tonightEl.innerHTML = `<p class="muted">Couldn't load PGA (${e.message}).</p>`;
+  }
+}
+
+function pgaTournamentCardHtml(ev) {
+  const c = ev.competitions?.[0] || {};
+  const status = c.status?.type?.shortDetail || ev.status?.type?.shortDetail || "";
+  const courseName = c.course?.name || ev.venue?.fullName || "";
+  const players = (c.competitors || []).slice(0, 5).map(p => ({
+    pos: p.status?.position?.id || p.status?.position?.displayName || "",
+    name: p.athlete?.shortName || p.athlete?.displayName || "",
+    score: p.score || (p.linescores && p.linescores.length ? p.linescores[p.linescores.length - 1]?.value : ""),
+    today: (p.linescores && p.linescores.length) ? (p.linescores[p.linescores.length - 1]?.value ?? "") : "",
+    thru: p.status?.thru || "",
+    flag: p.athlete?.flag?.href || "",
+  }));
+  return `
+    <article class="pga-tournament-card">
+      <header class="pga-tournament-card__header">
+        <div class="pga-tournament-card__eyebrow">PGA Tour · ${escape(status)}</div>
+        <h2 class="pga-tournament-card__title">${escape(ev.name || ev.shortName || "Tournament")}</h2>
+        <div class="pga-tournament-card__course">${escape(courseName)}</div>
+      </header>
+      <div class="pga-tournament-card__leaders">
+        ${players.length === 0 ? `<p class="muted" style="margin:8px 0;">Field not yet posted.</p>` : `
+          <div class="pga-tournament-card__row pga-tournament-card__row--head">
+            <span>Pos</span><span>Player</span><span>Total</span><span>Thru</span>
+          </div>
+          ${players.map(p => `
+            <div class="pga-tournament-card__row">
+              <span class="pga-tournament-card__pos">${escape(String(p.pos || ""))}</span>
+              <span class="pga-tournament-card__player">
+                ${p.flag ? `<img src="${escape(p.flag)}" alt="" class="pga-flag" />` : ""}
+                <b>${escape(p.name)}</b>
+              </span>
+              <span class="pga-tournament-card__score">${escape(String(p.score || "—"))}</span>
+              <span>${escape(String(p.thru || "—"))}</span>
+            </div>
+          `).join("")}
+        `}
+      </div>
+      <a class="pga-tournament-card__cta" href="scoreboard.html?league=pga">Full leaderboard →</a>
+    </article>
+  `;
 }
 
 async function hydrateStory(ev) {

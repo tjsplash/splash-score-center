@@ -2,11 +2,11 @@
 // list (NBA, MLB, NHL, WNBA, PGA leaderboard). Live data from ESPN's public
 // scoreboard endpoints.
 
-import { renderNav, mountTicker, escape } from "./script.js?v2026050109";
+import { renderNav, mountTicker, escape } from "./script.js?v2026050201";
 import {
   fetchScoreboard, fetchSummary, normalizeEvent,
   pollScoreboard, LEAGUES, TEAM_LOGO,
-} from "./espn.js?v2026050109";
+} from "./espn.js?v2026050201";
 
 renderNav("scoreboard");
 mountTicker(document.querySelector(".ticker"));
@@ -216,14 +216,16 @@ async function hydrateCard(ev) {
     }
 
     // Sport-specific leader categories
-    const leaders = (summary.leaders || []).slice(0, 2).flatMap(t =>
-      (t.leaders || []).slice(0, 2).map(l => ({
-        team: t.team?.abbreviation || "",
-        name: l.leaders?.[0]?.athlete?.shortName || "",
-        stat: l.leaders?.[0]?.displayValue || "",
-        cat: l.shortDisplayName || l.displayName || "",
-      }))
-    );
+    const leaders = activeLeague === "mlb"
+      ? extractMlbLeaders(summary)
+      : (summary.leaders || []).slice(0, 2).flatMap(t =>
+          (t.leaders || []).slice(0, 2).map(l => ({
+            team: t.team?.abbreviation || "",
+            name: l.leaders?.[0]?.athlete?.shortName || "",
+            stat: l.leaders?.[0]?.displayValue || "",
+            cat: l.shortDisplayName || l.displayName || "",
+          }))
+        );
     leadersEl.innerHTML = leaders.length
       ? `<div class="sb-card__leaders-grid">
           ${leaders.slice(0, 4).map(l => `
@@ -240,9 +242,12 @@ async function hydrateCard(ev) {
       if (competitors) {
         const home = competitors.find(c => c.homeAway === "home");
         const away = competitors.find(c => c.homeAway === "away");
+        // ESPN linescore entries can carry either { value } (legacy) or
+        // { displayValue, hits, errors } (current shape, esp. for MLB).
         const toCells = (arr) => (arr || []).map(s => {
-          const v = s?.value;
-          return (v === null || v === undefined || isNaN(Number(v))) ? null : Math.floor(Number(v));
+          if (!s) return null;
+          const v = s.displayValue ?? s.value;
+          return (v === null || v === undefined) ? null : v;
         });
         const homeLine = toCells(home?.linescores);
         const awayLine = toCells(away?.linescores);
@@ -270,6 +275,90 @@ function periodCount(league) {
   if (league === "nhl") return 3;
   if (league === "wnba") return 4;
   return 4; // nba
+}
+
+// MLB summary doesn't carry a top-level `leaders` array — it lives inside the
+// boxscore as per-team batting + pitching tables. We extract a couple of
+// human-readable leader rows (top hitter, top pitcher) from there.
+function extractMlbLeaders(summary) {
+  const teams = summary.boxscore?.players || [];
+  const out = [];
+  for (const team of teams) {
+    const teamAbbr = team.team?.abbreviation || "";
+    for (const stat of team.statistics || []) {
+      if (stat.type === "batting") {
+        const top = pickTopBatter(stat);
+        if (top) out.push({ team: teamAbbr, ...top });
+      } else if (stat.type === "pitching") {
+        const top = pickTopPitcher(stat);
+        if (top) out.push({ team: teamAbbr, ...top });
+      }
+    }
+  }
+  return out;
+}
+
+function pickTopBatter(stat) {
+  const labels = stat.labels || [];
+  const keys = stat.keys || [];
+  const hitsIx = labels.indexOf("H") !== -1 ? labels.indexOf("H") : keys.indexOf("hits");
+  const rbiIx  = labels.indexOf("RBI") !== -1 ? labels.indexOf("RBI") : keys.indexOf("RBIs");
+  const avgIx  = labels.indexOf("AVG") !== -1 ? labels.indexOf("AVG") : keys.indexOf("avg");
+  const athletes = stat.athletes || [];
+  if (!athletes.length) return null;
+  // Highest hits, tiebreak RBIs.
+  let best = null;
+  let bestScore = -1;
+  for (const a of athletes) {
+    const stats = a.stats || [];
+    const h = parseInt(stats[hitsIx], 10) || 0;
+    const r = parseInt(stats[rbiIx], 10) || 0;
+    const score = h * 10 + r;
+    if (score > bestScore) { bestScore = score; best = a; }
+  }
+  if (!best || bestScore <= 0) return null;
+  const stats = best.stats || [];
+  const h = stats[hitsIx];
+  const ab = labels.indexOf("AB") !== -1 ? stats[labels.indexOf("AB")] : null;
+  const rbi = stats[rbiIx];
+  const display = [h ? `${h} H` : null, ab ? `${ab} AB` : null, rbi ? `${rbi} RBI` : null].filter(Boolean).join(" · ");
+  return {
+    name: best.athlete?.shortName || best.athlete?.displayName || "",
+    stat: display || "—",
+    cat: "BAT",
+  };
+}
+
+function pickTopPitcher(stat) {
+  const labels = stat.labels || [];
+  const keys = stat.keys || [];
+  const ipIx = labels.indexOf("IP") !== -1 ? labels.indexOf("IP") : keys.indexOf("inningsPitched");
+  const kIx  = labels.indexOf("K") !== -1 ? labels.indexOf("K") : keys.indexOf("strikeouts");
+  const eraIx = labels.indexOf("ERA") !== -1 ? labels.indexOf("ERA") : keys.indexOf("ERA");
+  const athletes = stat.athletes || [];
+  if (!athletes.length) return null;
+  // Pitcher with most innings pitched (the starter); tiebreak K.
+  let best = null;
+  let bestScore = -1;
+  for (const a of athletes) {
+    const stats = a.stats || [];
+    const ip = parseFloat(stats[ipIx]) || 0;
+    const k = parseInt(stats[kIx], 10) || 0;
+    const score = ip * 100 + k;
+    if (score > bestScore) { bestScore = score; best = a; }
+  }
+  if (!best || bestScore <= 0) return null;
+  const stats = best.stats || [];
+  const display = [
+    stats[ipIx] ? `${stats[ipIx]} IP` : null,
+    stats[kIx] ? `${stats[kIx]} K` : null,
+    stats[eraIx] ? `${stats[eraIx]} ERA` : null,
+  ].filter(Boolean).join(" · ");
+  return {
+    name: best.athlete?.shortName || best.athlete?.displayName || "",
+    stat: display || "—",
+    cat: "PIT",
+  };
 }
 
 function periodHead(league) {

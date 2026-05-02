@@ -1,18 +1,49 @@
 // Game chat right rail — Real Sports-style with quick emojis,
 // per-message reactions, and floating emoji animation.
 
-import { escape, teamHex, spawnFloatingEmoji } from "./script.js?v2026050109";
-import { get, set, chatKey } from "./storage.js?v2026050109";
-import { requireIdentity, getIdentity } from "./identity.js?v2026050109";
+import { escape, teamHex, spawnFloatingEmoji, teamChipsHtml } from "./script.js?v2026050201";
+import { get, set, chatKey } from "./storage.js?v2026050201";
+import { requireIdentity, getIdentity } from "./identity.js?v2026050201";
 
-const QUICK_EMOJIS = ["🔥", "😱", "🤯", "💀", "🏀", "🤡", "🚨", "💯"];
+const QUICK_EMOJIS_BY_LEAGUE = {
+  nba: ["🔥", "😱", "🤯", "💀", "🏀", "🤡", "🚨", "💯"],
+  mlb: ["🔥", "😱", "💀", "⚾", "💣", "🚀", "🤡", "💯"],
+  nhl: ["🔥", "😱", "💀", "🏒", "🚨", "🧤", "💪", "💯"],
+  default: ["🔥", "😱", "🤯", "💀", "🚀", "🤡", "💪", "💯"],
+};
+
+const SEED_MESSAGES = {
+  nba: [
+    { name: "AnimalAndDan", body: "Tip-off vibes 🍿" },
+    { name: "BostonRob", body: "either way, this one's going down to the wire" },
+    { name: "QuickPicksQ", body: "running a Quickpicks lineup with both stars in this one — let's eat" },
+  ],
+  mlb: [
+    { name: "EastBleachers", body: "first pitch energy ⚾" },
+    { name: "DiamondDan", body: "what's everyone running tonight — overs on hits or unders on Ks?" },
+    { name: "QuickPicksQ", body: "took the over on top-of-the-order hits, fingers crossed" },
+  ],
+  nhl: [
+    { name: "ShotBlockerSam", body: "puck drop in 5 🥶" },
+    { name: "GoaliePoolGuy", body: "how's everyone looking on shots-on-goal lines tonight?" },
+    { name: "QuickPicksQ", body: "PP1 over points + power-play assists is my one to watch" },
+  ],
+  default: [
+    { name: "AnimalAndDan", body: "let's get it 🚀" },
+    { name: "QuickPicksQ", body: "running picks tonight — drop your favorites" },
+  ],
+};
 
 let rootEl = null;
 let gameId = null;
+let leagueLocal = "nba";
 
 export function mountChat(el, opts) {
   rootEl = el;
   gameId = opts.gameId;
+  leagueLocal = opts.league || "nba";
+
+  const QUICK_EMOJIS = QUICK_EMOJIS_BY_LEAGUE[leagueLocal] || QUICK_EMOJIS_BY_LEAGUE.default;
 
   rootEl.innerHTML = `
     <div class="gc-chat__header">
@@ -44,7 +75,7 @@ export function mountChat(el, opts) {
     const body = (input.value || "").trim();
     if (!body) return;
     const id = await requireIdentity();
-    pushMessage({ name: id.name, team: id.team, body, ts: Date.now() });
+    pushMessage({ name: id.name, team: id.team, teams: id.teams, body, ts: Date.now() });
     input.value = "";
     picker.hidden = true;
   });
@@ -57,7 +88,7 @@ export function mountChat(el, opts) {
     const id = await requireIdentity();
     const r = btn.getBoundingClientRect();
     spawnFloatingEmoji(emoji, r.left + r.width / 2, r.top);
-    pushMessage({ name: id.name, team: id.team, body: emoji, ts: Date.now(), emojiOnly: true });
+    pushMessage({ name: id.name, team: id.team, teams: id.teams, body: emoji, ts: Date.now(), emojiOnly: true });
   });
 
   // Emoji picker for inline-into-text.
@@ -123,15 +154,18 @@ export function mountChat(el, opts) {
     }, 0);
   });
 
-  // Seed welcome messages once. Also retroactively scrub the legacy O&D
-  // message from any older sessions still hanging in localStorage.
+  // Seed welcome messages once — sport-aware so an MLB chat doesn't open with
+  // NBA Game 6 talk. Stamp ascending timestamps so order is stable.
   const existing = get(chatKey(gameId), []);
   if (!existing.length) {
-    set(chatKey(gameId), [
-      { name: "AnimalAndDan", team: null, body: "Big Game 6 vibes 🍿", ts: Date.now() - 1000 * 60 * 8 },
-      { name: "BostonRob", team: "BOS", body: "Either way, this series is going down to the wire", ts: Date.now() - 1000 * 60 * 4 },
-      { name: "QuickPicksQ", team: null, body: "running a Quickpicks lineup with both stars in this one — let's eat", ts: Date.now() - 1000 * 60 * 2 },
-    ]);
+    const seeds = SEED_MESSAGES[leagueLocal] || SEED_MESSAGES.default;
+    const baseTs = Date.now() - 1000 * 60 * (seeds.length * 3);
+    set(chatKey(gameId), seeds.map((m, i) => ({
+      ...m,
+      team: null,
+      teams: {},
+      ts: baseTs + i * 1000 * 60 * 3,
+    })));
   } else {
     const cleaned = existing.filter(m => !/o&?d parlay riding/i.test(m.body || ""));
     if (cleaned.length !== existing.length) set(chatKey(gameId), cleaned);
@@ -178,7 +212,7 @@ function messageHtml(m) {
     <div class="gc-chat__msg ${m.emojiOnly ? "is-emoji-only" : ""}">
       <div class="gc-chat__msg-meta">
         <span class="gc-chat__msg-author">${escape(m.name)}</span>
-        ${m.team ? `<span class="comment__team" style="background:#${teamHex(m.team)}">${escape(m.team)}</span>` : ""}
+        ${teamChipsHtml(m)}
         <span>${formatRel(m.ts)}</span>
       </div>
       <div class="gc-chat__msg-body ${m.emojiOnly ? "gc-chat__msg-body--emoji" : ""}">${escape(m.body)}</div>

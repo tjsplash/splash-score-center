@@ -1,14 +1,14 @@
 // Game Center controller: header + tabs + live polling.
 // Pulls a real ESPN summary on a 10s loop and fans data out to sub-modules.
 
-import { renderNav, mountTicker, escape } from "./script.js?v2026050109";
-import { fetchSummary, pollSummary, normalizeEvent, TEAM_LOGO, LEAGUES } from "./espn.js?v2026050109";
-import { mountPbp, updatePbp } from "./pbp.js?v2026050109";
-import { mountBoxscore, updateBoxscore } from "./boxscore.js?v2026050109";
-import { mountMarkets, updateMarketsFromPlay, refreshSparklines } from "./markets.js?v2026050109";
-import { mountWinprob, updateWinprob } from "./winprob.js?v2026050109";
-import { mountChat } from "./chat.js?v2026050109";
-import { startFakeActivity } from "./fakeusers.js?v2026050109";
+import { renderNav, mountTicker, escape } from "./script.js?v2026050201";
+import { fetchSummary, pollSummary, normalizeEvent, TEAM_LOGO, LEAGUES } from "./espn.js?v2026050201";
+import { mountPbp, updatePbp } from "./pbp.js?v2026050201";
+import { mountBoxscore, updateBoxscore } from "./boxscore.js?v2026050201";
+import { mountMarkets, updateMarketsFromPlay, refreshSparklines } from "./markets.js?v2026050201";
+import { mountWinprob, updateWinprob } from "./winprob.js?v2026050201";
+import { mountChat } from "./chat.js?v2026050201";
+import { startFakeActivity } from "./fakeusers.js?v2026050201";
 
 renderNav("game");
 mountTicker(document.querySelector(".ticker"));
@@ -53,9 +53,9 @@ function ensureChatMounted() {
     aside.className = "gc-chat";
     aside.id = "game-chat-mobile";
     wrapper.appendChild(aside);
-    mountChat(aside, { gameId });
+    mountChat(aside, { gameId, league });
   } else {
-    mountChat(desktopChatHost, { gameId });
+    mountChat(desktopChatHost, { gameId, league });
   }
   target.dataset.mounted = "1";
 }

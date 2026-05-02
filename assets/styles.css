@@ -1357,6 +1357,64 @@ img {
   background: var(--border);
 }
 
+.pbp__quarter-divider--start { color: var(--teal-deep); }
+.pbp__quarter-divider--end { color: var(--text-mute); }
+.pbp__quarter-divider--end::before,
+.pbp__quarter-divider--end::after { background: color-mix(in srgb, var(--text-mute) 25%, transparent); }
+
+.pbp__final-divider {
+  text-align: center;
+  margin: 18px 0;
+  position: relative;
+}
+.pbp__final-divider span {
+  display: inline-block;
+  padding: 6px 18px;
+  border-radius: 999px;
+  background: var(--bg-dark);
+  color: var(--text-light);
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+}
+
+/* MLB-specific play card: pitcher-batter matchup row */
+.play-card--mlb .play-card__mlb-matchup {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  color: var(--text-mute-2);
+  margin-bottom: 4px;
+  flex-wrap: wrap;
+}
+
+.play-card__mlb-logo {
+  width: 18px;
+  height: 18px;
+  flex-shrink: 0;
+}
+
+.play-card__mlb-name {
+  font-weight: 700;
+  color: var(--text-dark);
+}
+
+.play-card__mlb-vs {
+  color: var(--text-mute);
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+.play-card.is-pitching-change {
+  border-left: 3px solid var(--amber);
+  padding-left: 9px;
+  background: linear-gradient(90deg, #fffbeb 0%, var(--bg-card) 60%);
+}
+
 .play-card {
   background: var(--bg-card);
   border: 1px solid var(--border);
@@ -2559,6 +2617,183 @@ img {
 .stat-card__player { font-weight: 600; color: var(--text-dark); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .stat-card__team { color: var(--text-mute); font-size: 11px; font-weight: 600; }
 .stat-card__value { font-weight: 700; font-variant-numeric: tabular-nums; color: var(--text-dark); }
+
+/* Home date scroller */
+
+.home-date {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 16px;
+  flex-wrap: wrap;
+}
+
+.home-date__inner {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  padding: 4px;
+  position: relative;
+  box-shadow: var(--shadow-sm);
+}
+
+.home-date__arrow {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background: transparent;
+  color: var(--text-mute-2);
+  font-size: 18px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.home-date__arrow:hover {
+  background: var(--bg-page);
+  color: var(--text-dark);
+}
+
+.home-date__pill {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1px;
+  padding: 4px 18px;
+  background: transparent;
+  border-radius: 999px;
+  cursor: pointer;
+  min-width: 180px;
+}
+
+.home-date__pill:hover { background: var(--bg-page); }
+
+.home-date__rel {
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.12em;
+  color: var(--teal-deep);
+}
+
+.home-date__abs {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-dark);
+}
+
+.home-date__input {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.home-date__today {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--teal-deep);
+  background: transparent;
+  border: 1px solid var(--teal-deep);
+  border-radius: 999px;
+  padding: 6px 14px;
+  cursor: pointer;
+}
+
+.home-date__today:hover { background: var(--teal-deep); color: var(--text-light); }
+.home-date__today[hidden] { display: none; }
+
+/* Golf tournament card on home */
+
+.pga-tournament-card {
+  background: var(--bg-card);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow);
+  overflow: hidden;
+  margin-bottom: 16px;
+}
+
+.pga-tournament-card__header {
+  padding: 18px 22px;
+  background: linear-gradient(180deg, #14532d 0%, #166534 100%);
+  color: var(--text-light);
+}
+
+.pga-tournament-card__eyebrow {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  color: var(--teal);
+  text-transform: uppercase;
+}
+
+.pga-tournament-card__title {
+  font-size: 20px;
+  font-weight: 700;
+  margin-top: 2px;
+}
+
+.pga-tournament-card__course {
+  font-size: 13px;
+  color: rgba(255,255,255,0.75);
+  margin-top: 4px;
+}
+
+.pga-tournament-card__leaders {
+  padding: 12px 22px 0;
+}
+
+.pga-tournament-card__row {
+  display: grid;
+  grid-template-columns: 50px 1fr 80px 60px;
+  gap: 10px;
+  padding: 8px 0;
+  align-items: center;
+  font-size: 13px;
+  border-bottom: 1px solid var(--border);
+}
+.pga-tournament-card__row:last-child { border-bottom: none; }
+
+.pga-tournament-card__row--head {
+  font-size: 10px;
+  font-weight: 700;
+  color: var(--text-mute);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  border-bottom: 1px solid var(--border);
+}
+
+.pga-tournament-card__pos {
+  font-weight: 700;
+  color: var(--text-mute-2);
+}
+
+.pga-tournament-card__player {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.pga-tournament-card__player b { color: var(--text-dark); }
+
+.pga-tournament-card__score {
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  color: var(--text-dark);
+}
+
+.pga-tournament-card__cta {
+  display: block;
+  padding: 14px 22px 18px;
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--teal-deep);
+}
+
+.pga-tournament-card__cta:hover { color: var(--teal); }
 
 /* Yesterday-fallback banner shown above tonight cards */
 .tonight-banner {

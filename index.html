@@ -10,7 +10,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="assets/styles.css?v2026050109" />
+  <link rel="stylesheet" href="assets/styles.css?v2026050201" />
 </head>
 <body data-page="home">
   <header class="nav">
@@ -35,11 +35,13 @@
   <main class="page">
     <div class="home-header">
       <div>
-        <h1 class="page-title">Tonight's games <span class="section-heading__pill">Live · ESPN</span></h1>
+        <h1 class="page-title" id="home-title">Tonight's games <span class="section-heading__pill">Live · ESPN</span></h1>
         <p class="page-subtitle" id="home-sub">Updates every 15 seconds. Recaps appear automatically when games go final.</p>
       </div>
       <div class="sport-filter" id="sport-filter" role="tablist" aria-label="Sport filter"></div>
     </div>
+
+    <div class="home-date" id="home-date" aria-label="Date selector"></div>
 
     <section class="tonight" id="tonight"></section>
 
@@ -77,6 +79,6 @@
     </a>
   </nav>
 
-  <script type="module" src="assets/home.js?v2026050109"></script>
+  <script type="module" src="assets/home.js?v2026050201"></script>
 </body>
 </html>
