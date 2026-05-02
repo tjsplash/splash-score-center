@@ -1,14 +1,14 @@
 // Game Center controller: header + tabs + live polling.
 // Pulls a real ESPN summary on a 10s loop and fans data out to sub-modules.
 
-import { renderNav, mountTicker, escape } from "./script.js?v2026050106";
-import { fetchSummary, pollSummary, normalizeEvent, TEAM_LOGO, LEAGUES } from "./espn.js?v2026050103";
-import { mountPbp, updatePbp } from "./pbp.js?v2026050103";
-import { mountBoxscore, updateBoxscore } from "./boxscore.js?v2026050103";
-import { mountMarkets, updateMarketsFromPlay, refreshSparklines } from "./markets.js?v2026050103";
-import { mountWinprob, updateWinprob } from "./winprob.js?v2026050103";
-import { mountChat } from "./chat.js?v2026050103";
-import { startFakeActivity } from "./fakeusers.js?v2026050103";
+import { renderNav, mountTicker, escape } from "./script.js?v2026050108";
+import { fetchSummary, pollSummary, normalizeEvent, TEAM_LOGO, LEAGUES } from "./espn.js?v2026050108";
+import { mountPbp, updatePbp } from "./pbp.js?v2026050108";
+import { mountBoxscore, updateBoxscore } from "./boxscore.js?v2026050108";
+import { mountMarkets, updateMarketsFromPlay, refreshSparklines } from "./markets.js?v2026050108";
+import { mountWinprob, updateWinprob } from "./winprob.js?v2026050108";
+import { mountChat } from "./chat.js?v2026050108";
+import { startFakeActivity } from "./fakeusers.js?v2026050108";
 
 renderNav("game");
 mountTicker(document.querySelector(".ticker"));
@@ -23,7 +23,7 @@ mountBoxscore(document.getElementById("panel-boxscore"), { gameId, league });
 // Markets + Win Prob are NBA-specific (Polymarket coverage). Hide for other leagues.
 const isNbaGame = league === "nba";
 if (isNbaGame) {
-  mountMarkets(document.getElementById("panel-markets"), { gameId });
+  mountMarkets(document.getElementById("panel-markets"), { gameId, league });
 } else {
   // Hide unsupported tabs and panels for non-NBA games.
   ["markets", "winprob"].forEach(t => {
@@ -98,14 +98,26 @@ chatBtn?.addEventListener("click", () => chatBtn.classList.remove("has-new"));
 // Tabs.
 const tabs = document.querySelectorAll(".gc__tab");
 const panels = document.querySelectorAll(".gc__panel");
-tabs.forEach(t => t.addEventListener("click", () => {
-  const name = t.dataset.tab;
-  tabs.forEach(x => x.classList.toggle("is-active", x === t));
-  tabs.forEach(x => x.setAttribute("aria-selected", x === t ? "true" : "false"));
+function activateTab(name) {
+  let found = false;
+  tabs.forEach(x => {
+    const on = x.dataset.tab === name;
+    x.classList.toggle("is-active", on);
+    x.setAttribute("aria-selected", on ? "true" : "false");
+    if (on) found = true;
+  });
   panels.forEach(p => p.classList.toggle("is-active", p.dataset.panel === name));
-  // Canvases need a redraw when their panel becomes visible — clientWidth was 0 while hidden.
   if (name === "markets") refreshSparklines();
-}));
+  return found;
+}
+
+tabs.forEach(t => t.addEventListener("click", () => activateTab(t.dataset.tab)));
+
+// Deep-link support: ?tab=markets or #markets activates that tab on load.
+const hashTab = (location.hash || "").replace("#", "");
+const queryTab = params.get("tab");
+const initialTab = queryTab || hashTab;
+if (initialTab) activateTab(initialTab);
 
 // Polling loop.
 let processedPlayIds = new Set();

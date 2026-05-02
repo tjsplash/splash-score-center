@@ -1,7 +1,7 @@
 // Identity: display name + optional team affiliation, persisted to localStorage.
 // Modal opens lazily the first time anyone tries to comment or react.
 
-import { get, set } from "./storage.js?v2026050103";
+import { get, set } from "./storage.js?v2026050108";
 
 const KEY = "identity";
 

@@ -1,44 +1,295 @@
-// Markets module: realistic Polymarket-style markets per game.
-// Prices update on every new ESPN play, and any swing >=5% emits an event
-// that the PBP module renders inline as a Market Move card.
+// Markets module: Polymarket-style two-sided markets, rendered in Splash
+// styling. Each raw "side" entry from data/markets.json is paired with its
+// opposite (synthesized when only one side exists in the seed data) so every
+// card shows yes/no percentages plus a dual-line history chart.
 
-import { escape } from "./script.js?v2026050103";
-import { injectMarketMove } from "./pbp.js?v2026050103";
+import { escape, teamHex } from "./script.js?v2026050108";
+import { injectMarketMove } from "./pbp.js?v2026050108";
+import {
+  matchEspnToSplash, fetchPropsForGame, groupPropsByPlayer,
+} from "./quickpicks.js?v2026050108";
 
 const SWING_THRESHOLD = 0.05;
 const HISTORY_LEN = 60;
 
+// Generic palette for non-team markets.
+const COLOR = {
+  over: "#22c55e",
+  under: "#ef4444",
+  yesNeutral: "#1BC4CF",  // teal
+  noNeutral: "#9aa1ab",
+};
+
 let gameId = null;
+let league = "nba";
 let rootEl = null;
-let markets = [];
-let snapshots = {}; // marketId -> last "anchor" price for swing detection
+let pairs = [];          // [{ id, type, title, yes:{}, no:{}, urlEvent }]
 let homeAbbr = null;
 let awayAbbr = null;
 let eventUrl = null;
+let splashPropsHtml = "";
 
 export async function mountMarkets(el, opts) {
   rootEl = el;
   gameId = opts.gameId;
+  league = opts.league || "nba";
   const all = await (await fetch("data/markets.json", { cache: "no-cache" })).json();
   const cfg = all[gameId];
-  if (!cfg) {
-    rootEl.innerHTML = `<p class="muted">No markets configured for this game.</p>`;
-    return;
+  if (cfg) {
+    homeAbbr = cfg.homeTeam;
+    awayAbbr = cfg.awayTeam;
+    eventUrl = cfg.eventUrl;
+    pairs = buildPairs(cfg.markets, homeAbbr, awayAbbr, eventUrl);
+  } else {
+    pairs = [];
   }
-  homeAbbr = cfg.homeTeam;
-  awayAbbr = cfg.awayTeam;
-  eventUrl = cfg.eventUrl;
-  markets = cfg.markets.map(m => ({
-    ...m,
-    history: seedHistory(m.price),
+  renderMarkets();
+  hydrateSplashPicks(cfg, opts.homeAbbr, opts.awayAbbr);
+}
+
+// ---- Pairing ----
+
+function buildPairs(rawMarkets, homeAbbrIn, awayAbbrIn, eventUrlIn) {
+  const used = new Set();
+  const out = [];
+
+  for (const m of rawMarkets) {
+    if (used.has(m.id)) continue;
+
+    // Find a counterpart already in the seed data with the same type but a
+    // different side (e.g., the two sides of a Moneyline market).
+    const counterpart = rawMarkets.find(x =>
+      !used.has(x.id) && x.id !== m.id &&
+      x.type === m.type && playerKeyOf(x) === playerKeyOf(m) &&
+      x.side !== m.side
+    );
+
+    used.add(m.id);
+    if (counterpart) used.add(counterpart.id);
+
+    out.push(buildPair(m, counterpart, homeAbbrIn, awayAbbrIn, eventUrlIn));
+  }
+  return out;
+}
+
+// A "player key" so player props pair only against the same player.
+function playerKeyOf(m) {
+  if (m.type !== "Player Points") return "_";
+  // Side examples: "Cunningham o28.5", "Cunningham u28.5"
+  return (m.side || "").split(" ")[0];
+}
+
+function buildPair(yesRaw, counterpartRaw, homeT, awayT, eventUrlIn) {
+  const yes = sideFromRaw(yesRaw, homeT, awayT, /* isYes */ true);
+  let no;
+  if (counterpartRaw) {
+    no = sideFromRaw(counterpartRaw, homeT, awayT, /* isYes */ false);
+  } else {
+    no = synthesizeOppositeSide(yesRaw, homeT, awayT);
+  }
+
+  const title = displayTitle(yesRaw, no, homeT, awayT);
+
+  return {
+    id: yesRaw.id + (counterpartRaw ? `+${counterpartRaw.id}` : "+syn"),
+    type: yesRaw.type,
+    title,
+    urlEvent: eventUrlIn,
+    yes,
+    no,
+    snapshot: { yes: yes.price, no: no.price },
+  };
+}
+
+function sideFromRaw(raw, homeT, awayT, isYes) {
+  const { shortLabel, color } = sideAppearance(raw, homeT, awayT, isYes);
+  const history = seedHistory(raw.price);
+  return {
+    id: raw.id,
+    raw,
+    label: shortLabel,
+    longLabel: raw.label,
+    side: raw.side,
+    price: raw.price,
     delta24: 0,
-  }));
-  markets.forEach(m => snapshots[m.id] = m.price);
+    history,
+    color,
+    url: raw.url,
+  };
+}
+
+function synthesizeOppositeSide(yesRaw, homeT, awayT) {
+  // Build an opposite side at price 1 - yes, with mirrored history.
+  const oppPrice = clamp(1 - yesRaw.price, 0.05, 0.95);
+  const fakeRaw = synthesizeOppositeRaw(yesRaw, homeT, awayT, oppPrice);
+  const { shortLabel, color } = sideAppearance(fakeRaw, homeT, awayT, /* isYes */ false);
+  const history = seedHistory(oppPrice);
+  return {
+    id: yesRaw.id + ":no",
+    raw: fakeRaw,
+    label: shortLabel,
+    longLabel: fakeRaw.label,
+    side: fakeRaw.side,
+    price: oppPrice,
+    delta24: 0,
+    history,
+    color,
+    url: yesRaw.url,
+  };
+}
+
+function synthesizeOppositeRaw(yesRaw, homeT, awayT, oppPrice) {
+  const t = yesRaw.type;
+  if (t === "Total") {
+    const line = parseLine(yesRaw.side || yesRaw.label, 210);
+    return { id: yesRaw.id + ":no", type: t, side: `Under ${line}`, label: `Under ${line}`, price: oppPrice };
+  }
+  if (t === "Player Points") {
+    const player = (yesRaw.side || "").split(" ")[0];
+    const line = parseLine(yesRaw.side || yesRaw.label, 0);
+    return { id: yesRaw.id + ":no", type: t, side: `${player} u${line}`, label: `${player} under ${line} pts`, price: oppPrice };
+  }
+  if (t === "Spread") {
+    // "DET -3.5" → "ORL +3.5"
+    const m = (yesRaw.side || "").match(/(\w+)\s+([+-])(\d+\.?\d*)/);
+    if (m) {
+      const team = m[1];
+      const sign = m[2];
+      const line = m[3];
+      const otherTeam = team === homeT ? awayT : homeT;
+      const otherSign = sign === "-" ? "+" : "-";
+      return { id: yesRaw.id + ":no", type: t, side: `${otherTeam} ${otherSign}${line}`, label: `${otherTeam} cover ${otherSign}${line}`, price: oppPrice };
+    }
+  }
+  if (t === "1H Moneyline") {
+    const team = (yesRaw.side || "").split(" ")[0];
+    const otherTeam = team === homeT ? awayT : homeT;
+    return { id: yesRaw.id + ":no", type: t, side: `${otherTeam} 1H`, label: `${otherTeam} to lead at halftime`, price: oppPrice };
+  }
+  if (t === "Series") {
+    const team = (yesRaw.side || "").split(" ")[0];
+    const otherTeam = team === homeT ? awayT : homeT;
+    return { id: yesRaw.id + ":no", type: t, side: `${otherTeam} series`, label: `${otherTeam} to win series`, price: oppPrice };
+  }
+  // Moneyline default
+  const team = (yesRaw.side || "").split(" ")[0];
+  const otherTeam = team === homeT ? awayT : homeT;
+  return { id: yesRaw.id + ":no", type: t, side: otherTeam, label: `${otherTeam} to win`, price: oppPrice };
+}
+
+function sideAppearance(raw, homeT, awayT, isYes) {
+  const t = raw.type;
+  if (t === "Total") {
+    const isOver = (raw.side || "").toLowerCase().startsWith("over");
+    const isUnder = (raw.side || "").toLowerCase().startsWith("under");
+    const line = parseLine(raw.side || raw.label, 210);
+    return {
+      shortLabel: isUnder ? `Under ${line}` : `Over ${line}`,
+      color: isUnder ? COLOR.under : COLOR.over,
+    };
+  }
+  if (t === "Player Points") {
+    const isUnder = /\bu(nder)?\b|\bu\d/.test(raw.side || "");
+    const line = parseLine(raw.side || raw.label, 0);
+    return {
+      shortLabel: isUnder ? `Under ${line}` : `Over ${line}`,
+      color: isUnder ? COLOR.noNeutral : COLOR.yesNeutral,
+    };
+  }
+  if (t === "Spread") {
+    // Use the side as-is for label — already terse like "DET -3.5".
+    const team = (raw.side || "").split(" ")[0];
+    return { shortLabel: raw.side, color: "#" + teamHex(team) };
+  }
+  if (t === "1H Moneyline" || t === "Series") {
+    const team = (raw.side || "").split(" ")[0];
+    return { shortLabel: team, color: "#" + teamHex(team) };
+  }
+  // Moneyline
+  const team = (raw.side || "").split(" ")[0];
+  return { shortLabel: team, color: "#" + teamHex(team) };
+}
+
+function displayTitle(yesRaw, noSide, homeT, awayT) {
+  const t = yesRaw.type;
+  if (t === "Player Points") {
+    const player = ((yesRaw.side || "").split(" ")[0]) || "Player";
+    return `${player} — points`;
+  }
+  if (t === "Series") return `Series winner`;
+  if (t === "1H Moneyline") return `1st-half moneyline`;
+  return t;
+}
+
+// ---- Splash picks (unchanged from prior pass) ----
+
+async function hydrateSplashPicks(cfg, homeAbbrIn, awayAbbrIn) {
+  const home = cfg?.homeTeam || homeAbbrIn;
+  const away = cfg?.awayTeam || awayAbbrIn;
+  if (!home || !away) return;
+  const ev = { league, home: { abbr: home }, away: { abbr: away } };
+  const match = await matchEspnToSplash(ev);
+  if (!match) return;
+  let props;
+  try { props = await fetchPropsForGame(match.id, match.league); }
+  catch { return; }
+  if (!props.length) return;
+
+  const groups = groupPropsByPlayer(props);
+  const propTypes = uniqueOrdered(props.map(p => p.type_display));
+
+  splashPropsHtml = `
+    <section class="splash-picks">
+      <header class="splash-picks__header">
+        <div>
+          <div class="splash-picks__eyebrow">Splash Quick Picks</div>
+          <h3 class="splash-picks__title">Player props <span class="splash-picks__count">${groups.length} players · ${props.length} props</span></h3>
+        </div>
+        <a class="splash-picks__cta" href="https://app.splashsports.com/quick-picks/board" target="_blank" rel="noopener">Play on Splash ↗</a>
+      </header>
+      <div class="splash-picks__type-row">
+        ${propTypes.map(t => `<span class="splash-picks__type-chip">${escape(t)}</span>`).join("")}
+      </div>
+      <div class="splash-picks__players">
+        ${groups.map(playerCardHtml).join("")}
+      </div>
+    </section>
+  `;
   renderMarkets();
 }
 
+function uniqueOrdered(arr) {
+  const seen = new Set();
+  const out = [];
+  for (const x of arr) { if (!seen.has(x)) { seen.add(x); out.push(x); } }
+  return out;
+}
+
+function playerCardHtml(g) {
+  return `
+    <div class="qp-player">
+      <div class="qp-player__name">${escape(g.entity_name)}</div>
+      <div class="qp-player__props">
+        ${g.props.map(p => `
+          <div class="qp-prop">
+            <span class="qp-prop__type">${escape(p.type_display)}</span>
+            <span class="qp-prop__line">${formatLine(p.line)}</span>
+          </div>
+        `).join("")}
+      </div>
+    </div>
+  `;
+}
+
+function formatLine(line) {
+  if (line == null) return "";
+  return Number.isInteger(line) ? `${line}.5` : String(line);
+}
+
+// ---- Live updates ----
+
 export function updateMarketsFromPlay(play, summary) {
-  if (!markets.length) return;
+  if (!pairs.length) return;
   const home = summary.header?.competitions?.[0]?.competitors?.find(c => c.homeAway === "home");
   const away = summary.header?.competitions?.[0]?.competitors?.find(c => c.homeAway === "away");
   if (!home || !away) return;
@@ -48,148 +299,192 @@ export function updateMarketsFromPlay(play, summary) {
   const period = summary.header?.competitions?.[0]?.status?.period || 1;
   const clock = summary.header?.competitions?.[0]?.status?.displayClock || "";
 
-  // Build a rough state snapshot.
   const totalPts = homeScore + awayScore;
   const margin = homeScore - awayScore;
   const elapsed = (period - 1) + (1 - parseClock(clock) / 12);
   const remaining = Math.max(0, 4 - elapsed);
+  const ctx = { margin, totalPts, remaining, period, clock };
 
-  for (const m of markets) {
-    const newPrice = derivePrice(m, { margin, totalPts, remaining, period, clock });
-    // tiny random jitter for realism
-    const jittered = clamp(newPrice + (Math.random() - 0.5) * 0.01, 0.02, 0.98);
-    m.history.push(jittered);
-    if (m.history.length > HISTORY_LEN) m.history.shift();
-    m.price = jittered;
-    m.delta24 = jittered - m.history[0];
+  for (const pair of pairs) {
+    const yesNew = clamp(derivePrice(pair.yes, pair, ctx) + (Math.random() - 0.5) * 0.01, 0.02, 0.98);
+    const noNew = clamp(1 - yesNew, 0.02, 0.98);
 
-    // Swing detection from anchor.
-    const anchor = snapshots[m.id];
-    if (Math.abs(jittered - anchor) >= SWING_THRESHOLD) {
+    advanceSide(pair.yes, yesNew);
+    advanceSide(pair.no, noNew);
+
+    // Swing detection on yes side anchor.
+    const anchor = pair.snapshot.yes;
+    if (Math.abs(yesNew - anchor) >= SWING_THRESHOLD) {
       injectMarketMove({
-        id: `mm:${m.id}:${play.id}`,
-        marketId: m.id,
-        label: m.label,
+        id: `mm:${pair.yes.id}:${play.id}`,
+        marketId: pair.yes.id,
+        label: pair.yes.longLabel || pair.title,
         from: anchor,
-        to: jittered,
-        delta: jittered - anchor,
+        to: yesNew,
+        delta: yesNew - anchor,
         trigger: shorten(play.text || "(play)"),
         afterPlayId: play.id,
         periodLabel: `Q${period}`,
         clock,
-        url: m.url,
+        url: pair.yes.url,
       });
-      snapshots[m.id] = jittered;
+      pair.snapshot.yes = yesNew;
+      pair.snapshot.no = noNew;
     }
   }
 
   renderMarkets();
 }
 
-function derivePrice(m, st) {
-  // Toy "model": move price toward an implied outcome based on game state.
-  // Good enough for demo, not for trading.
-  const remainingPenalty = clamp(1 - st.remaining / 4, 0, 1); // closer to end = less uncertainty
-  const sideIsHome = m.side === homeAbbr || m.side?.startsWith(homeAbbr || "__");
-  if (m.type === "Moneyline") {
+function advanceSide(side, newPrice) {
+  side.history.push(newPrice);
+  if (side.history.length > HISTORY_LEN) side.history.shift();
+  side.price = newPrice;
+  side.delta24 = newPrice - side.history[0];
+}
+
+function derivePrice(side, pair, st) {
+  // Returns the "yes-side" probability (the winning probability for `side`).
+  const t = pair.type;
+  const sideIsHome = side.side === homeAbbr || side.side?.startsWith(homeAbbr || "__");
+  const remainingPenalty = clamp(1 - st.remaining / 4, 0, 1);
+
+  if (t === "Moneyline") {
     const lead = sideIsHome ? st.margin : -st.margin;
     const x = (lead / 6) * (1 + remainingPenalty * 1.5);
     return clamp(sigmoid(x), 0.05, 0.95);
   }
-  if (m.type === "Spread") {
-    return clamp(0.5 + (st.margin / 14) * (1 + remainingPenalty), 0.1, 0.9);
+  if (t === "Spread") {
+    const sideIsHomeSpread = side.side?.startsWith(homeAbbr || "__");
+    const lead = sideIsHomeSpread ? st.margin : -st.margin;
+    return clamp(0.5 + (lead / 14) * (1 + remainingPenalty), 0.1, 0.9);
   }
-  if (m.type === "Total") {
-    // Need enough elapsed time to project a total. Early-game projection is
-    // noisy; smooth toward the seeded price proportional to elapsed fraction.
+  if (t === "Total") {
+    const isUnder = (side.side || "").toLowerCase().startsWith("under");
     const elapsedFrac = clamp((st.period - 1 + (1 - parseClock(st.clock || "12") / 12)) / 4, 0, 1);
-    if (elapsedFrac < 0.1) return m.price; // first ~5 minutes — keep seeded price
+    if (elapsedFrac < 0.1) return side.price;
     const projected = st.totalPts / elapsedFrac;
-    const line = parseLine(m.label, 210);
+    const line = parseLine(side.label, 210);
     const x = (projected - line) / 12;
     const target = sigmoid(x);
-    // Blend toward target proportional to elapsed time — late-game lines move more.
-    return clamp(m.price * (1 - elapsedFrac) + target * elapsedFrac, 0.1, 0.9);
+    const overProb = clamp(side.price * (1 - elapsedFrac) + target * elapsedFrac, 0.1, 0.9);
+    return isUnder ? clamp(1 - overProb, 0.1, 0.9) : overProb;
   }
-  if (m.type === "1H Moneyline") {
-    if (st.period >= 3) return m.price; // settled at half
+  if (t === "1H Moneyline") {
+    if (st.period >= 3) return side.price;
     const lead = sideIsHome ? st.margin : -st.margin;
     return clamp(0.5 + (lead / 12), 0.05, 0.95);
   }
-  if (m.type === "Series") {
-    // Series price moves slowly with game outcome influence — hard to model
-    // tonight without knowing prior series state, so just drift.
-    return clamp(m.price + (Math.random() - 0.5) * 0.005, 0.1, 0.95);
+  if (t === "Series") {
+    return clamp(side.price + (Math.random() - 0.5) * 0.005, 0.1, 0.95);
   }
   // Player props: slow drift
-  return clamp(m.price + (Math.random() - 0.5) * 0.02, 0.1, 0.9);
+  return clamp(side.price + (Math.random() - 0.5) * 0.02, 0.1, 0.9);
 }
+
+// ---- Render ----
 
 function renderMarkets() {
   if (!rootEl) return;
-  rootEl.innerHTML = `
-    <p class="muted" style="margin-bottom:12px;">Real Polymarket markets for tonight, seeded from <a href="${escape(eventUrl || "https://polymarket.com")}" target="_blank" rel="noopener" style="color:var(--teal-deep);font-weight:600;">polymarket.com</a> and evolving against live ESPN plays. Click any card to open the market.</p>
-    <div class="markets-grid">
-      ${markets.map(marketCardHtml).join("")}
-    </div>
-  `;
-  // Render sparklines after layout. If panel is hidden (display:none), skip.
-  requestAnimationFrame(() => markets.forEach(m => drawSparkline(m)));
+
+  const marketsHtml = pairs.length ? `
+    <section class="poly-section">
+      <header class="splash-picks__header">
+        <div>
+          <div class="splash-picks__eyebrow">Game markets</div>
+          <h3 class="splash-picks__title">Lines &amp; props <span class="splash-picks__count">${pairs.length} markets</span></h3>
+        </div>
+        ${eventUrl ? `<a class="splash-picks__cta splash-picks__cta--ghost" href="${escape(eventUrl)}" target="_blank" rel="noopener">Open event on Polymarket ↗</a>` : ""}
+      </header>
+      <div class="poly-grid">
+        ${pairs.map(pairCardHtml).join("")}
+      </div>
+    </section>
+  ` : "";
+
+  rootEl.innerHTML = `${splashPropsHtml}${marketsHtml || (splashPropsHtml ? "" : `<p class="muted">No markets configured for this game.</p>`)}`;
+
+  requestAnimationFrame(() => pairs.forEach(p => drawDualSparkline(p)));
 }
 
 export function refreshSparklines() {
-  // Called when the Markets tab becomes visible to redraw with valid layout.
-  requestAnimationFrame(() => markets.forEach(m => drawSparkline(m)));
+  requestAnimationFrame(() => pairs.forEach(p => drawDualSparkline(p)));
 }
 
-function marketCardHtml(m) {
-  const delta = m.delta24;
-  const deltaCls = Math.abs(delta) < 0.005 ? "is-flat" : (delta > 0 ? "" : "is-down");
+function pairCardHtml(p) {
   return `
-    <div class="market-card" data-market-id="${escape(m.id)}">
-      <div class="market-card__type">${escape(m.type)}</div>
-      <div class="market-card__label">${escape(m.label)}</div>
-      <div class="market-card__row">
-        <div class="market-card__price">${(m.price * 100).toFixed(0)}%</div>
-        <div class="market-card__delta ${deltaCls}">${delta > 0 ? "+" : ""}${(delta * 100).toFixed(1)}%</div>
+    <div class="poly-card" data-pair-id="${escape(p.id)}">
+      <div class="poly-card__header">
+        <div class="poly-card__type">${escape(p.title)}</div>
+        <a class="poly-card__source" href="${escape(p.urlEvent || p.yes.url || "https://polymarket.com")}" target="_blank" rel="noopener" title="View on Polymarket">↗ Polymarket</a>
       </div>
-      <canvas class="market-card__spark" id="spark-${escape(m.id)}"></canvas>
-      <a class="market-card__cta" href="${escape(m.url)}" target="_blank" rel="noopener">Open on Polymarket ↗</a>
+      <canvas class="poly-card__chart" id="chart-${escape(p.id)}"></canvas>
+      <div class="poly-card__sides">
+        ${sidePillHtml(p.yes, "yes")}
+        ${sidePillHtml(p.no, "no")}
+      </div>
     </div>
   `;
 }
 
-function drawSparkline(m) {
-  const canvas = document.getElementById(`spark-${m.id}`);
+function sidePillHtml(side, kind) {
+  const pct = Math.round(side.price * 100);
+  const delta = side.delta24;
+  const deltaCls = Math.abs(delta) < 0.005 ? "is-flat" : (delta > 0 ? "is-up" : "is-down");
+  const deltaStr = `${delta > 0 ? "+" : ""}${(delta * 100).toFixed(1)}%`;
+  return `
+    <a class="poly-pill poly-pill--${kind}" href="${escape(side.url || "https://polymarket.com")}" target="_blank" rel="noopener" style="--pill-color:${side.color}">
+      <span class="poly-pill__label">${escape(side.label)}</span>
+      <span class="poly-pill__price">${pct}%</span>
+      <span class="poly-pill__delta ${deltaCls}">${deltaStr}</span>
+    </a>
+  `;
+}
+
+function drawDualSparkline(p) {
+  const canvas = document.getElementById(`chart-${p.id}`);
   if (!canvas) return;
   const ctx = canvas.getContext("2d");
   const w = canvas.clientWidth;
   const h = canvas.clientHeight;
+  if (!w || !h) return;
   canvas.width = w * devicePixelRatio;
   canvas.height = h * devicePixelRatio;
   ctx.scale(devicePixelRatio, devicePixelRatio);
   ctx.clearRect(0, 0, w, h);
-  const pts = m.history;
-  if (!pts.length) return;
-  const min = Math.min(...pts);
-  const max = Math.max(...pts);
-  const range = Math.max(0.02, max - min);
-  ctx.strokeStyle = pts[pts.length - 1] >= pts[0] ? "#22c55e" : "#ef4444";
-  ctx.lineWidth = 1.5;
+
+  // Y axis is fixed 0..1 so yes and no are mirrored around 50%.
+  const drawLine = (pts, color) => {
+    if (!pts.length) return;
+    ctx.strokeStyle = color;
+    ctx.lineWidth = 1.6;
+    ctx.beginPath();
+    pts.forEach((v, i) => {
+      const x = (i / (pts.length - 1 || 1)) * w;
+      const y = h - clamp(v, 0, 1) * (h - 6) - 3;
+      if (i === 0) ctx.moveTo(x, y);
+      else ctx.lineTo(x, y);
+    });
+    ctx.stroke();
+  };
+
+  // 50% guideline.
+  ctx.strokeStyle = "rgba(0,0,0,0.06)";
+  ctx.lineWidth = 1;
+  ctx.setLineDash([2, 4]);
   ctx.beginPath();
-  pts.forEach((v, i) => {
-    const x = (i / (pts.length - 1 || 1)) * w;
-    const y = h - ((v - min) / range) * (h - 4) - 2;
-    if (i === 0) ctx.moveTo(x, y);
-    else ctx.lineTo(x, y);
-  });
+  ctx.moveTo(0, h / 2);
+  ctx.lineTo(w, h / 2);
   ctx.stroke();
+  ctx.setLineDash([]);
+
+  drawLine(p.yes.history, p.yes.color);
+  drawLine(p.no.history, p.no.color);
 }
 
 // ---- Helpers ----
 
 function seedHistory(price) {
-  // Build a believable last-hour history ending at `price`.
   const out = [];
   let v = price - (Math.random() - 0.5) * 0.06;
   for (let i = 0; i < HISTORY_LEN; i++) {
@@ -211,13 +506,8 @@ function parseClock(c) {
 }
 
 function parseLine(label, fallback) {
-  const m = label.match(/(\d+\.?\d*)/);
+  const m = (label || "").match(/(\d+\.?\d*)/);
   return m ? parseFloat(m[1]) : fallback;
-}
-
-function homeFromLabel(label) {
-  // Approximate: first letter of the label is the team if possible.
-  return label.split(" ")[0];
 }
 
 function shorten(s) {

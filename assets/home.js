@@ -2,10 +2,13 @@
 // selected league, and a row of action buttons at the bottom that surface
 // bracket / standings / season leaders inline (ESPN-style).
 
-import { renderNav, mountTicker, escape } from "./script.js?v2026050106";
+import { renderNav, mountTicker, escape, teamHex } from "./script.js?v2026050108";
 import {
   fetchScoreboard, fetchSummary, normalizeEvent, pollScoreboard, LEAGUES,
-} from "./espn.js?v2026050106";
+} from "./espn.js?v2026050108";
+import {
+  matchEspnToSplash, popularPropsForGame,
+} from "./quickpicks.js?v2026050108";
 
 const HOME_LEAGUES = ["nba", "mlb", "nhl"];
 
@@ -193,16 +196,153 @@ async function refreshTonight() {
       : "";
     tonightEl.innerHTML = banner + events.map(tonightCardHtml).join("");
     tonightEl.querySelectorAll("[data-event-id]").forEach(el => {
-      el.addEventListener("click", () => {
+      el.addEventListener("click", (e) => {
+        // Anchors inside the card (preview link) take their own href without
+        // routing through the card-level navigation.
+        if (e.target.closest("a")) return;
         location.href = `game.html?id=${el.dataset.eventId}&league=${activeLeague}`;
       });
     });
     // Hydrate stories from ESPN's article description for richer copy than
     // the hand-written fallback (recap on FINAL, narrative on live games).
     events.forEach(ev => hydrateStory(ev));
+    // Hydrate Splash Quick Picks + Polymarket preview blocks.
+    events.forEach(ev => hydratePreview(ev));
   } catch (e) {
     tonightEl.innerHTML = `<p class="muted">Couldn't load games (${e.message}). Retrying…</p>`;
   }
+}
+
+let marketsCfgPromise = null;
+function loadMarketsConfig() {
+  if (!marketsCfgPromise) {
+    marketsCfgPromise = fetch("data/markets.json", { cache: "no-cache" })
+      .then(r => r.ok ? r.json() : {})
+      .catch(() => ({}));
+  }
+  return marketsCfgPromise;
+}
+
+async function hydratePreview(ev) {
+  const slot = tonightEl.querySelector(`[data-preview-for="${ev.id}"]`);
+  if (!slot) return;
+
+  const [match, marketsCfg] = await Promise.all([
+    matchEspnToSplash(ev),
+    loadMarketsConfig(),
+  ]);
+
+  // Quick Picks side: top 3 popular props for the matched Splash game.
+  let qpProps = [];
+  if (match) {
+    qpProps = await popularPropsForGame(match.id, match.league, 3);
+  }
+
+  // Markets side: pick winner / spread / total from markets.json by ESPN id.
+  const cfg = marketsCfg[ev.id];
+  const previewMarkets = cfg ? pickPreviewMarkets(cfg, ev) : [];
+
+  if (!qpProps.length && !previewMarkets.length) {
+    slot.innerHTML = `<div class="tonight-card__preview-empty">Quick Picks &amp; markets open closer to tip-off.</div>`;
+    return;
+  }
+
+  const linkHref = `game.html?id=${ev.id}&league=${activeLeague}#markets`;
+  slot.innerHTML = `
+    <div class="tonight-card__preview-grid">
+      ${qpProps.length ? `
+        <div class="tc-preview-col">
+          <div class="tc-preview-col__title"><span class="tc-preview-col__icon">🎯</span> Splash Quick Picks <span class="tc-preview-col__hint">popular</span></div>
+          <ul class="tc-preview-list">
+            ${qpProps.map(p => `
+              <li class="tc-preview-prop">
+                <span class="tc-preview-prop__player">${escape(p.entity_name)}</span>
+                <span class="tc-preview-prop__type">${escape(p.type_display)}</span>
+                <span class="tc-preview-prop__line">${formatLine(p.line)}</span>
+              </li>`).join("")}
+          </ul>
+        </div>` : ""}
+      ${previewMarkets.length ? `
+        <div class="tc-preview-col">
+          <div class="tc-preview-col__title"><span class="tc-preview-col__icon">📊</span> Markets <span class="tc-preview-col__hint">Polymarket</span></div>
+          <ul class="tc-preview-list">
+            ${previewMarkets.map(pair => `
+              <li class="tc-preview-pair">
+                <span class="tc-preview-pair__type">${escape(pair.type)}</span>
+                <span class="tc-preview-pair__pill" style="--pill-color:${pair.yes.color}">
+                  <span class="tc-preview-pair__pill-label">${escape(pair.yes.label)}</span>
+                  <span class="tc-preview-pair__pill-price">${Math.round(pair.yes.price * 100)}%</span>
+                </span>
+                <span class="tc-preview-pair__pill" style="--pill-color:${pair.no.color}">
+                  <span class="tc-preview-pair__pill-label">${escape(pair.no.label)}</span>
+                  <span class="tc-preview-pair__pill-price">${Math.round(pair.no.price * 100)}%</span>
+                </span>
+              </li>`).join("")}
+          </ul>
+        </div>` : ""}
+    </div>
+    <a class="tonight-card__preview-link" href="${linkHref}">View all markets &amp; picks →</a>
+  `;
+}
+
+// Pick three preview pairs (Moneyline, Spread, Total) and return them as
+// two-sided objects so the preview can show both yes/no percentages.
+function pickPreviewMarkets(cfg, ev) {
+  const ms = cfg.markets || [];
+  const home = cfg.homeTeam;
+  const away = cfg.awayTeam;
+  const pairFor = (type, fallbackPredicate) => buildPreviewPair(ms, type, home, away, fallbackPredicate);
+
+  const moneyline = pairFor("Moneyline");
+  const spread = pairFor("Spread");
+  const total = pairFor("Total");
+  return [moneyline, spread, total].filter(Boolean);
+}
+
+function buildPreviewPair(rawMarkets, type, homeT, awayT) {
+  const candidates = rawMarkets.filter(m => m.type === type);
+  if (!candidates.length) return null;
+  const yes = candidates[0];
+  const counterpart = candidates.find(c => c !== yes && c.side !== yes.side);
+  const no = counterpart || synthesizeOpp(yes, type, homeT, awayT);
+  return {
+    type,
+    yes: previewSide(yes, homeT, awayT, true),
+    no: previewSide(no, homeT, awayT, false),
+  };
+}
+
+function synthesizeOpp(yes, type, homeT, awayT) {
+  const oppPrice = Math.max(0.05, Math.min(0.95, 1 - yes.price));
+  if (type === "Total") {
+    const m = (yes.side || "").match(/(\d+\.?\d*)/);
+    const line = m ? m[1] : "";
+    const isOver = (yes.side || "").toLowerCase().startsWith("over");
+    return { type, side: isOver ? `Under ${line}` : `Over ${line}`, label: isOver ? `Under ${line}` : `Over ${line}`, price: oppPrice };
+  }
+  if (type === "Spread") {
+    const m = (yes.side || "").match(/(\w+)\s+([+-])(\d+\.?\d*)/);
+    if (m) {
+      const otherTeam = m[1] === homeT ? awayT : homeT;
+      const otherSign = m[2] === "-" ? "+" : "-";
+      return { type, side: `${otherTeam} ${otherSign}${m[3]}`, label: `${otherTeam} ${otherSign}${m[3]}`, price: oppPrice };
+    }
+  }
+  // Moneyline default
+  const team = (yes.side || "").split(" ")[0];
+  const otherTeam = team === homeT ? awayT : homeT;
+  return { type, side: otherTeam, label: otherTeam, price: oppPrice };
+}
+
+function previewSide(raw, homeT, awayT, isYes) {
+  const t = raw.type;
+  if (t === "Total") {
+    const isOver = (raw.side || "").toLowerCase().startsWith("over");
+    return { label: raw.side, price: raw.price, color: isOver ? "#22c55e" : "#ef4444" };
+  }
+  // Team-based market — color by team
+  const team = (raw.side || "").split(" ")[0];
+  return { label: raw.side, price: raw.price, color: "#" + teamHex(team) };
 }
 
 function yesterdayYYYYMMDD() {
@@ -284,6 +424,13 @@ function tonightCardHtml(ev) {
         </div>
       </div>
       <div class="tonight-card__story">${escape(story)}</div>
+      <div class="tonight-card__preview" data-preview-for="${ev.id}">
+        <div class="tonight-card__preview-skel">
+          <span class="skel" style="height:14px;width:120px;display:inline-block"></span>
+          <span class="skel" style="height:14px;width:60%;display:block;margin-top:6px"></span>
+          <span class="skel" style="height:14px;width:40%;display:block;margin-top:6px"></span>
+        </div>
+      </div>
       <div class="tonight-card__cta">
         <span>${ctaPrimary}</span>
         <span class="tonight-card__cta-btn">Open Game Center →</span>
