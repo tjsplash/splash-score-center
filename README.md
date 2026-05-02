@@ -6,6 +6,12 @@ Polymarket-context surfaced inline in the feed.
 
 **Live:** https://tjsplash.github.io/splash-score-center/
 
+## Sharing this prototype
+
+- 📐 **[`ARCHITECTURE.md`](ARCHITECTURE.md)** — module map, data sources, live update model. Start here.
+- 🔌 **[`INTEGRATION.md`](INTEGRATION.md)** — how this slots into the Splash app: what's reusable, what would need to be built, open product questions. For the CTO conversation.
+- 🎨 **[`DESIGN_BRIEF.md`](DESIGN_BRIEF.md)** — component inventory, design decisions made by an engineer, open questions. For the lead designer.
+
 ## What it does
 
 - **Home** — Tonight's games at a glance, plus the full NBA 2026

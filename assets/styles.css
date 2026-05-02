@@ -2638,56 +2638,6 @@ img {
   .skel-card__circle { width: 44px; height: 44px; }
 }
 
-/* Home: bracket teaser card (legacy — kept for fallback links) */
-.bracket-teaser {
-  margin-top: 32px;
-}
-
-.bracket-teaser__link {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  background: var(--bg-card);
-  border-radius: var(--radius-lg);
-  padding: 20px 24px;
-  box-shadow: var(--shadow);
-  border: 1px solid var(--border);
-  transition: box-shadow 0.15s, transform 0.1s;
-  background-image: linear-gradient(135deg, var(--bg-card) 60%, var(--teal-soft) 100%);
-}
-
-.bracket-teaser__link:hover {
-  box-shadow: var(--shadow-md);
-  transform: translateY(-1px);
-}
-
-.bracket-teaser__eyebrow {
-  font-size: 11px;
-  font-weight: 700;
-  color: var(--teal-deep);
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
-}
-
-.bracket-teaser__title {
-  font-size: 18px;
-  font-weight: 700;
-  margin-top: 4px;
-}
-
-.bracket-teaser__sub {
-  font-size: 13px;
-  color: var(--text-mute-2);
-  margin-top: 4px;
-  max-width: 600px;
-}
-
-.bracket-teaser__cta {
-  font-size: 13px;
-  font-weight: 700;
-  color: var(--teal-deep);
-}
-
 /* ==========================================================================
    BRACKET PAGE — ESPN-style 7-column visual bracket
    ========================================================================== */
