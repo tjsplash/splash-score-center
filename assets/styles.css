@@ -342,6 +342,50 @@ img {
 
 .ticker-card__score.is-leading { color: var(--teal); }
 
+/* Golf ticker card — different shape: tournament name + leader */
+.ticker-card--golf {
+  grid-template-columns: 1fr;
+  grid-template-rows: auto auto auto;
+  gap: 4px 0;
+  min-width: 220px;
+}
+
+.ticker-card__golf-tname {
+  font-weight: 700;
+  font-size: 13px;
+  color: var(--text-light);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.ticker-card__golf-leader {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  gap: 6px;
+  align-items: baseline;
+  font-size: 12px;
+}
+
+.ticker-card__golf-rank {
+  color: var(--text-mute-light);
+  font-weight: 700;
+}
+
+.ticker-card__golf-name {
+  font-weight: 600;
+  color: var(--text-light);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.ticker-card__golf-score {
+  font-weight: 700;
+  color: var(--teal);
+  font-variant-numeric: tabular-nums;
+}
+
 /* ===== Layout ===== */
 
 .page {
@@ -3595,4 +3639,377 @@ img {
   .chat-sheet__inner .gc-chat__header {
     padding-top: 18px;
   }
+}
+
+/* ==========================================================================
+   PGA GAME CENTER
+   ========================================================================== */
+
+.pga-gc {
+  max-width: 1280px;
+  margin: 0 auto;
+  padding: 16px 24px;
+}
+
+.pga-gc__header {
+  background: linear-gradient(180deg, #14532d 0%, #166534 100%);
+  color: var(--text-light);
+  border-radius: var(--radius-lg) var(--radius-lg) 0 0;
+  padding: 18px 22px;
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-end;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+.pga-gc__eyebrow {
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--teal);
+}
+
+.pga-gc__title {
+  font-size: 22px;
+  font-weight: 700;
+  margin-top: 4px;
+  letter-spacing: -0.01em;
+}
+
+.pga-gc__course {
+  font-size: 13px;
+  color: rgba(255,255,255,0.75);
+  margin-top: 2px;
+}
+
+.pga-gc__header-right {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  background: rgba(255,255,255,0.12);
+  padding: 6px 10px;
+  border-radius: var(--radius);
+}
+
+.pga-gc__header-right label {
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--teal);
+}
+
+.pga-gc__header-right select {
+  padding: 4px 10px;
+  border: none;
+  border-radius: var(--radius);
+  font-family: inherit;
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--text-dark);
+  background: var(--bg-card);
+  cursor: pointer;
+}
+
+.pga-gc__tabs {
+  display: flex;
+  gap: 0;
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-top: none;
+  padding: 0 14px;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+.pga-gc__tabs::-webkit-scrollbar { display: none; }
+
+.pga-gc__tab {
+  padding: 12px 16px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-mute);
+  border-bottom: 2px solid transparent;
+  cursor: pointer;
+  transition: color 0.15s, border-color 0.15s;
+  white-space: nowrap;
+  background: none;
+  border-top: none;
+  border-left: none;
+  border-right: none;
+}
+
+.pga-gc__tab:hover { color: var(--text-dark); }
+.pga-gc__tab.is-active { color: var(--teal-deep); border-bottom-color: var(--teal); }
+
+.pga-gc__panels {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-top: none;
+  border-radius: 0 0 var(--radius-lg) var(--radius-lg);
+  padding: 14px 18px 22px;
+  box-shadow: var(--shadow);
+}
+
+.pga-gc__panel { display: none; }
+.pga-gc__panel.is-active { display: block; }
+
+/* Game-center leaderboard variant — dense, includes star col + R1-R4 cols */
+.pga-leaderboard--gc {
+  font-size: 12px;
+}
+
+.pga-leaderboard--gc th, .pga-leaderboard--gc td {
+  padding: 6px 8px;
+}
+
+.pga-lb__star { width: 32px; }
+
+.pga-lb__star-btn {
+  background: transparent;
+  border: none;
+  font-size: 16px;
+  color: var(--border);
+  cursor: pointer;
+  padding: 2px 4px;
+  transition: color 0.15s, transform 0.05s;
+}
+
+.pga-lb__star-btn:hover { color: var(--amber); }
+.pga-lb__star-btn.is-on { color: var(--amber); }
+.pga-lb__star-btn:active { transform: scale(0.85); }
+
+/* Shot Feed */
+.pga-feed__bar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin-bottom: 12px;
+}
+
+.pga-feed__filters {
+  display: inline-flex;
+  gap: 6px;
+  background: var(--bg-page);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  padding: 4px;
+}
+
+.pga-feed__chip {
+  padding: 5px 12px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-mute-2);
+  background: transparent;
+  cursor: pointer;
+  border: none;
+}
+
+.pga-feed__chip:hover { color: var(--text-dark); }
+.pga-feed__chip.is-active {
+  background: var(--bg-dark);
+  color: var(--text-light);
+}
+
+.pga-feed__hint {
+  font-size: 11px;
+  color: var(--text-mute);
+}
+
+.pga-feed__list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.pga-feed-card {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 2fr) auto;
+  gap: 10px;
+  align-items: center;
+  padding: 10px 14px;
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  border-left: 3px solid var(--border);
+  font-size: 13px;
+}
+
+.pga-feed-card--eagle, .pga-feed-card--albatross, .pga-feed-card--hole-in-one {
+  border-left-color: var(--teal);
+  background: linear-gradient(90deg, var(--teal-soft-50) 0%, var(--bg-card) 60%);
+}
+
+.pga-feed-card--birdie { border-left-color: var(--green); }
+.pga-feed-card--bogey { border-left-color: var(--amber); }
+.pga-feed-card--double-bogey, .pga-feed-card--triple-bogey { border-left-color: var(--red); }
+
+.pga-feed-card__player {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+}
+
+.pga-feed-card__detail {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: baseline;
+}
+
+.pga-feed-card__hole {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--text-mute);
+}
+
+.pga-feed-card__label {
+  font-weight: 700;
+  color: var(--text-dark);
+}
+
+.pga-feed-card__strokes {
+  color: var(--text-mute-2);
+}
+
+.pga-feed-card__rel {
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+  font-size: 14px;
+}
+.pga-feed-card__rel.is-down { color: var(--green); }
+.pga-feed-card__rel.is-up   { color: var(--red); }
+.pga-feed-card__rel.is-flat { color: var(--text-mute); }
+
+.pga-feed__legend {
+  font-size: 11px;
+  margin-top: 12px;
+}
+
+/* Player Stats grid */
+.pga-pstats-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  gap: 10px;
+}
+
+.pga-pstats-card {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 10px 12px;
+}
+
+.pga-pstats-card__head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
+.pga-pstats-card__total {
+  margin-left: auto;
+  font-weight: 800;
+  color: var(--teal-deep);
+  font-variant-numeric: tabular-nums;
+}
+
+.pga-pstats-card__rounds {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 4px;
+  font-size: 12px;
+}
+
+.pga-pstats-card__rounds > div {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  padding: 6px 4px;
+  background: var(--bg-page);
+  border-radius: 6px;
+}
+
+.pga-pstats-card__rounds > div span {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  color: var(--text-mute);
+  text-transform: uppercase;
+}
+
+/* Course Stats */
+.pga-course__summary {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-end;
+  gap: 14px;
+  margin-bottom: 14px;
+  flex-wrap: wrap;
+}
+
+.pga-course__name {
+  font-size: 16px;
+  font-weight: 700;
+}
+
+.pga-course__totals {
+  display: flex;
+  gap: 16px;
+  font-size: 13px;
+}
+
+.pga-course__totals b {
+  font-size: 16px;
+  font-variant-numeric: tabular-nums;
+}
+
+.pga-course-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+}
+
+.pga-course-table th, .pga-course-table td {
+  padding: 6px 4px;
+  text-align: center;
+  border-bottom: 1px solid var(--border);
+}
+
+.pga-course-table th {
+  background: var(--bg-page);
+  font-weight: 700;
+  font-size: 11px;
+  color: var(--text-mute);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.pga-course-table td:first-child, .pga-course-table th:first-child {
+  text-align: left;
+}
+
+@media (max-width: 768px) {
+  .pga-gc { padding: 12px 12px; }
+  .pga-gc__header { padding: 14px 14px 16px; }
+  .pga-gc__title { font-size: 18px; }
+  .pga-gc__panels { padding: 10px 12px 16px; }
+  .pga-leaderboard--gc { font-size: 11px; }
+  .pga-leaderboard--gc th, .pga-leaderboard--gc td { padding: 5px 4px; }
+  .pga-course-table { font-size: 10px; }
+  .pga-course-table th, .pga-course-table td { padding: 4px 2px; }
+}
+
+.pga-course-table-wrap {
+  overflow-x: auto;
 }

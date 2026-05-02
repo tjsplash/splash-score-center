@@ -1,8 +1,8 @@
 // Full ESPN-style NBA playoff bracket — 7-column grid, West-Center-East,
 // connector lines between rounds, live game highlighting.
 
-import { renderNav, mountTicker, escape } from "./script.js?v2026050203";
-import { TEAM_LOGO } from "./espn.js?v2026050203";
+import { renderNav, mountTicker, escape } from "./script.js?v2026050205";
+import { TEAM_LOGO } from "./espn.js?v2026050205";
 
 renderNav("bracket");
 mountTicker(document.querySelector(".ticker"));

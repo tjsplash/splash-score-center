@@ -2,17 +2,18 @@
 <html lang="en">
 <head>
   <meta charset="utf-8" />
-  <title>Splash Score Center · Scoreboard</title>
+  <title>Splash Score Center · PGA Game Center</title>
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <meta name="description" content="Every NBA game today, live scores and quick stats." />
+  <meta name="description" content="Live PGA Tour leaderboard, shot feed, player stats, and course stats." />
   <link rel="preconnect" href="https://a.espncdn.com" crossorigin />
   <link rel="preconnect" href="https://site.api.espn.com" crossorigin />
+  <link rel="preconnect" href="https://sports.core.api.espn.com" crossorigin />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="assets/styles.css?v2026050205" />
 </head>
-<body data-page="scoreboard">
+<body data-page="game">
   <header class="nav">
     <a href="index.html" class="nav__logo" aria-label="Splash Score Center home">
       <img class="nav__logo-img" src="assets/splash-logo-white.svg" alt="splash sports" />
@@ -22,7 +23,7 @@
       <ul class="nav__links">
         <li><a class="nav__link" data-page="home" href="index.html">Home</a></li>
         <li><a class="nav__link" data-page="scoreboard" href="scoreboard.html">Scoreboard</a></li>
-        <li><a class="nav__link" data-page="game" href="game.html?id=401869417">Game Center</a></li>
+        <li><a class="nav__link is-active" data-page="game" href="pga-game.html">Game Center</a></li>
       </ul>
     </nav>
     <div class="nav__right">
@@ -30,13 +31,24 @@
     </div>
   </header>
 
-  <div class="ticker" aria-label="Tonight's NBA games"></div>
+  <div class="ticker" aria-label="Tonight's games"></div>
 
-  <main class="page">
-    <h1 class="page-title">Scoreboard</h1>
-    <p class="page-subtitle" id="sb-date"></p>
-    <div class="sb-league-bar" id="sb-league-bar"></div>
-    <section class="sb-list" id="sb-list"></section>
+  <main class="pga-gc">
+    <header class="pga-gc__header" id="pga-gc-header"></header>
+
+    <div class="pga-gc__tabs" role="tablist">
+      <button class="pga-gc__tab is-active" role="tab" data-tab="leaderboard" aria-selected="true">Leaderboard</button>
+      <button class="pga-gc__tab" role="tab" data-tab="feed">Shot Feed</button>
+      <button class="pga-gc__tab" role="tab" data-tab="player-stats">Player Stats</button>
+      <button class="pga-gc__tab" role="tab" data-tab="course">Course Stats</button>
+    </div>
+
+    <div class="pga-gc__panels">
+      <div class="pga-gc__panel is-active" data-panel="leaderboard" id="panel-leaderboard"></div>
+      <div class="pga-gc__panel" data-panel="feed" id="panel-feed"></div>
+      <div class="pga-gc__panel" data-panel="player-stats" id="panel-player-stats"></div>
+      <div class="pga-gc__panel" data-panel="course" id="panel-course"></div>
+    </div>
   </main>
 
   <nav class="tabbar" aria-label="Primary">
@@ -44,16 +56,16 @@
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 12L12 3l9 9"/><path d="M5 10v10h14V10"/></svg>
       <span>Home</span>
     </a>
-    <a href="scoreboard.html" data-tab="scoreboard" class="is-active">
+    <a href="scoreboard.html" data-tab="scoreboard">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M3 10h18M9 4v16"/></svg>
       <span>Scores</span>
     </a>
-    <a href="game.html?id=401869417" data-tab="game">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3v18M6 6c4 4 8 8 12 12M18 6c-4 4-8 8-12 12"/></svg>
+    <a href="pga-game.html" data-tab="game" class="is-active">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3v18"/></svg>
       <span>Live</span>
     </a>
   </nav>
 
-  <script type="module" src="assets/scoreboard.js?v2026050205"></script>
+  <script type="module" src="assets/pga-game.js?v2026050205"></script>
 </body>
 </html>

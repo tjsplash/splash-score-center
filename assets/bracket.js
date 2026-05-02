@@ -2,8 +2,8 @@
 // Visual layout mirrors ESPN's playoff-bracket page: East on the left,
 // West on the right, with seed dots, records, and series state per matchup.
 
-import { TEAM_LOGO } from "./espn.js?v2026050203";
-import { escape } from "./script.js?v2026050203";
+import { TEAM_LOGO } from "./espn.js?v2026050205";
+import { escape } from "./script.js?v2026050205";
 
 let data = null;
 let currentRound = "r1";

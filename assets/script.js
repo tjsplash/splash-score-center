@@ -1,7 +1,7 @@
 // Shared bootstrap: nav, sticky ticker, identity surface in header.
 
-import { fetchScoreboard, normalizeEvent, pollScoreboard, pollMultiSportScoreboard, TONIGHT_EVENT_IDS, LEAGUES } from "./espn.js?v2026050203";
-import { getIdentity } from "./identity.js?v2026050203";
+import { fetchScoreboard, normalizeEvent, pollScoreboard, pollMultiSportScoreboard, TONIGHT_EVENT_IDS, LEAGUES } from "./espn.js?v2026050205";
+import { getIdentity } from "./identity.js?v2026050205";
 
 // Single shared event bus.
 export const bus = new EventTarget();
@@ -85,8 +85,8 @@ export function teamChipsHtml(holder) {
 
 // ---- Multi-sport score ticker ----
 
-const TICKER_LEAGUES = ["nba", "mlb", "nhl"];
-const LEAGUE_ORDER = ["nba", "nhl", "mlb"]; // ESPN-style ordering: live sports first
+const TICKER_LEAGUES = ["nba", "mlb", "nhl", "pga"];
+const LEAGUE_ORDER = ["nba", "nhl", "mlb", "pga"]; // ESPN-style ordering: live sports first
 
 export async function mountTicker(rootEl, opts = {}) {
   if (!rootEl) return () => {};
@@ -132,8 +132,7 @@ export async function mountTicker(rootEl, opts = {}) {
     for (const r of lastResults) {
       if (!activeLeagues.has(r.league)) continue;
       const evs = (r.data.events || [])
-        .map(ev => normalizeEvent(ev, r.league))
-        .filter(e => !e.isGolf);
+        .map(ev => normalizeEvent(ev, r.league));
       // Within a sport, sort: live > pre > post; pin NBA-tonight first.
       evs.sort((a, b) => {
         const aT = TONIGHT_EVENT_IDS.indexOf(a.id);
@@ -169,6 +168,8 @@ export async function mountTicker(rootEl, opts = {}) {
 }
 
 function tickerCardHtml(ev) {
+  if (ev.isGolf) return tickerGolfCardHtml(ev);
+
   const live = ev.isLive;
   const final = ev.state === "post";
   const cls = ["ticker-card", `is-${ev.league}`];
@@ -196,6 +197,37 @@ function tickerCardHtml(ev) {
       <img class="ticker-card__logo" src="${ev.home.logo}" alt="${ev.home.abbr}" />
       <span><span class="ticker-card__abbr">${ev.home.abbr}</span><span class="ticker-card__sub">${ev.home.record}</span></span>
       <span class="ticker-card__score ${homeWinning ? "is-leading" : ""}">${showScore ? ev.home.score : ""}</span>
+    </a>
+  `;
+}
+
+function tickerGolfCardHtml(ev) {
+  const live = ev.isLive;
+  const cls = ["ticker-card", "ticker-card--golf", `is-${ev.league}`];
+  if (live) cls.push("is-live");
+  if (ev.state === "post") cls.push("is-final");
+
+  const status = ev.detail || (live ? "Live" : "Scheduled");
+  const leader = (ev.leaders || [])[0];
+  // Use the tournament short name truncated to fit the card width.
+  const tname = (ev.shortName || ev.name || "").length > 22
+    ? (ev.shortName || ev.name || "").slice(0, 22) + "…"
+    : (ev.shortName || ev.name || "");
+
+  return `
+    <a href="pga-game.html?id=${ev.id}" class="${cls.join(" ")}" aria-label="${ev.shortName || ""}">
+      <div class="ticker-card__status">
+        <span class="ticker-card__status-state">${live ? '<span class="live-dot"></span>' : ""}${status}</span>
+        <span class="ticker-card__broadcast">PGA</span>
+      </div>
+      <span class="ticker-card__golf-tname">${tname}</span>
+      ${leader ? `
+        <span class="ticker-card__golf-leader">
+          <span class="ticker-card__golf-rank">1.</span>
+          <span class="ticker-card__golf-name">${leader.name}</span>
+          <span class="ticker-card__golf-score">${leader.score || "—"}</span>
+        </span>
+      ` : `<span class="ticker-card__golf-leader muted">No leader yet</span>`}
     </a>
   `;
 }

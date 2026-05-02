@@ -1,7 +1,7 @@
 // Box Score tab: full per-player stat tables for both teams.
 
-import { escape } from "./script.js?v2026050203";
-import { TEAM_LOGO } from "./espn.js?v2026050203";
+import { escape } from "./script.js?v2026050205";
+import { TEAM_LOGO } from "./espn.js?v2026050205";
 
 let rootEl = null;
 let league = "nba";

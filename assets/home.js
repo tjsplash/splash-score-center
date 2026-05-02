@@ -2,13 +2,13 @@
 // selected league, and a row of action buttons at the bottom that surface
 // bracket / standings / season leaders inline (ESPN-style).
 
-import { renderNav, mountTicker, escape, teamHex } from "./script.js?v2026050203";
+import { renderNav, mountTicker, escape, teamHex } from "./script.js?v2026050205";
 import {
   fetchScoreboard, fetchSummary, normalizeEvent, pollScoreboard, LEAGUES,
-} from "./espn.js?v2026050203";
+} from "./espn.js?v2026050205";
 import {
   matchEspnToSplash, popularPropsForGame, playerInitials,
-} from "./quickpicks.js?v2026050203";
+} from "./quickpicks.js?v2026050205";
 
 const HOME_LEAGUES = ["nba", "mlb", "nhl", "pga"];
 
@@ -544,7 +544,7 @@ function pgaTournamentCardHtml(ev, topN = 5) {
           ${visible.map(p => pgaPlayerRowHtml(p, round, cur)).join("")}
         `}
       </div>
-      <a class="pga-tournament-card__cta" href="scoreboard.html?league=pga">Full leaderboard →</a>
+      <a class="pga-tournament-card__cta" href="pga-game.html?id=${escape(ev.id)}">Full leaderboard →</a>
     </article>
   `;
 }
