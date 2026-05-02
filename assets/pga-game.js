@@ -2,8 +2,9 @@
 // Tabs: Leaderboard, Shot Feed (hole-by-hole highlights for top-10 or
 // starred), Player Stats (per-player season + tournament), Course Stats.
 
-import { renderNav, mountTicker, escape } from "./script.js?v2026050205";
-import { fetchScoreboard, pollScoreboard } from "./espn.js?v2026050205";
+import { renderNav, mountTicker, escape } from "./script.js?v2026050207";
+import { fetchScoreboard, pollScoreboard } from "./espn.js?v2026050207";
+import { findActiveTournament, fetchLeaderboard, fetchLiveStrokes } from "./pgatour.js?v2026050207";
 
 renderNav("game");
 mountTicker(document.querySelector(".ticker"));
@@ -283,8 +284,6 @@ function renderShotFeed() {
   const cur = currentRound(ev);
   const round = selectedRound || cur;
 
-  // Decide which players to include. If user has starred any, use their
-  // starred list; otherwise use the top-10.
   const filterMode = starred.size > 0 ? "starred" : "top10";
   const includedPlayers = filterMode === "starred"
     ? players.filter(p => starred.has(p.id))
@@ -296,32 +295,63 @@ function renderShotFeed() {
         <button class="pga-feed__chip ${filterMode === "top10" ? "is-active" : ""}" data-feed-mode="top10">Top 10</button>
         <button class="pga-feed__chip ${filterMode === "starred" ? "is-active" : ""}" data-feed-mode="starred">Starred (${starred.size})</button>
       </div>
-      <div class="pga-feed__hint">Hole-by-hole · scoring events from ESPN</div>
+      <div class="pga-feed__hint" id="pga-feed-source">Loading shot data…</div>
     </div>
     <div class="pga-feed__list" id="pga-feed-list"></div>
     <p class="pga-feed__legend muted">Tip: open the Leaderboard tab and tap the ★ to follow a golfer here.</p>
   `;
 
   panels.feed.querySelectorAll("[data-feed-mode]").forEach(btn => {
-    btn.addEventListener("click", () => {
-      // Toggling mode is implicit — starring/unstarring switches modes.
-      // Tapping "starred" with no stars is a no-op. We still re-render in case
-      // the user starred from the leaderboard while this tab was open.
-      renderShotFeed();
-    });
+    btn.addEventListener("click", () => renderShotFeed());
   });
 
-  // Hydrate per-round per-hole linescores for each included player and
-  // assemble a sorted feed.
   hydrateShotFeed(ev, includedPlayers, round);
 }
 
 async function hydrateShotFeed(ev, players, round) {
   const listEl = document.getElementById("pga-feed-list");
+  const sourceEl = document.getElementById("pga-feed-source");
   if (!listEl) return;
   listEl.innerHTML = `<p class="muted" style="padding:14px;">Loading shots…</p>`;
 
-  // Fetch each player's per-round linescores in parallel; cache by competitor id.
+  // 1) Try PGA Tour live shot-by-shot data, but with a short timeout — if
+  //    the API is slow or no tournament is in progress, we drop straight
+  //    into the ESPN hole-by-hole fallback rather than block the user.
+  const withTimeout = (promise, ms) => Promise.race([
+    promise,
+    new Promise((_, reject) => setTimeout(() => reject(new Error("timeout")), ms)),
+  ]);
+
+  let pgaCards = null;
+  try {
+    const tournament = await withTimeout(findActiveTournament(ev.name, ev.season?.year), 4000);
+    if (tournament && tournament.status === "IN_PROGRESS") {
+      const [lb, strokes] = await withTimeout(Promise.all([
+        fetchLeaderboard(tournament.id),
+        fetchLiveStrokes(tournament.id),
+      ]), 6000);
+      pgaCards = buildLiveShotCards(lb, strokes, players, round);
+      if (sourceEl) sourceEl.textContent = `Shot-by-shot · PGA Tour · ${tournament.name} R${round}`;
+    }
+  } catch {}
+
+  if (pgaCards && pgaCards.length) {
+    listEl.innerHTML = pgaCards.join("");
+    return;
+  }
+
+  // 2) Fallback: hole-by-hole "recent action" derived from ESPN linescores,
+  //    enriched with leaderboard context (Pos / Today / Total / Hole).
+  const espnLeaderIndex = new Map(); // ESPN id → { pos, today, total }
+  for (const p of (ev.competitions?.[0]?.competitors || [])) {
+    espnLeaderIndex.set(p.id, {
+      pos: p.status?.position?.displayName || p.status?.position?.id || "",
+      total: p.score || "",
+      today: roundScoreFor(p, round),
+      thru: thruFor(p, round, currentRound(ev)),
+    });
+  }
+
   const results = await Promise.all(players.map(async (p) => {
     if (!linescoreCache.has(p.id)) {
       try {
@@ -335,6 +365,7 @@ async function hydrateShotFeed(ev, players, round) {
     const items = linescoreCache.get(p.id) || [];
     const rd = items[round - 1];
     if (!rd) return [];
+    const ctx = espnLeaderIndex.get(p.id) || {};
     return (rd.linescores || []).map((hole, idx) => ({
       player: p.athlete?.shortName || p.athlete?.displayName || "",
       playerId: p.id,
@@ -345,36 +376,118 @@ async function hydrateShotFeed(ev, players, round) {
       scoreType: hole.scoreType?.name || "PAR",
       label: SCORE_LABELS[hole.scoreType?.name] || hole.scoreType?.displayName || "Par",
       relative: hole.scoreType?.displayValue || "E",
+      pos: ctx.pos,
+      total: ctx.total,
+      today: ctx.today,
+      currentThru: ctx.thru,
     }));
   }));
 
-  // Filter to "interesting" plays: any non-par, plus eagles+ always; sort by
-  // hole desc to roughly approximate "most recent first".
   const flat = results.flat().filter(s => s.strokes && s.scoreType !== "PAR");
   flat.sort((a, b) => b.hole - a.hole);
 
   if (!flat.length) {
+    if (sourceEl) sourceEl.textContent = "No notable scores yet for this round.";
     listEl.innerHTML = `<p class="muted" style="padding:14px;">No notable scoring events for this round yet.</p>`;
     return;
   }
 
-  listEl.innerHTML = flat.map(shotCardHtml).join("");
+  if (sourceEl) sourceEl.textContent = `Hole-by-hole · ESPN · R${round} · live shot-by-shot will replace this when a tournament goes IN_PROGRESS on PGA Tour.`;
+  listEl.innerHTML = flat.map(holeRecapCardHtml).join("");
 }
 
-function shotCardHtml(s) {
+function buildLiveShotCards(lb, strokes, espnPlayers, round) {
+  if (!lb || !strokes?.strokes?.length) return [];
+  // Index ESPN players by lowercase short-name so we can map PGA Tour player
+  // → ESPN flag / id (and respect the star/top-10 filter).
+  const espnByName = new Map();
+  const espnIdsToInclude = new Set(espnPlayers.map(p => p.id));
+  for (const p of espnPlayers) {
+    const name = (p.athlete?.shortName || p.athlete?.displayName || "").toLowerCase();
+    if (name) espnByName.set(name, p);
+  }
+
+  // PGA Tour leaderboard data for context (position / total / today / thru).
+  const lbByPlayerId = new Map();
+  for (const row of lb.players || []) {
+    lbByPlayerId.set(row.id, row);
+  }
+
+  const cards = [];
+  for (const stroke of strokes.strokes) {
+    if (stroke.currentRound !== round) continue;
+    if (!stroke.playByPlay || stroke.playByPlay === "Round Complete") continue;
+    const pgaPlayer = lbByPlayerId.get(stroke.playerId)?.player;
+    const pgaScoring = lbByPlayerId.get(stroke.playerId)?.scoringData || {};
+    if (!pgaPlayer) continue;
+    const espn = espnByName.get((pgaPlayer.shortName || pgaPlayer.displayName || "").toLowerCase());
+    // Only include if the player is in the active filter set (top-10 or starred)
+    if (espnPlayers.length > 0 && !espn && !espnIdsToInclude.has(stroke.playerId)) continue;
+
+    cards.push(liveShotCardHtml({
+      name: pgaPlayer.shortName || pgaPlayer.displayName,
+      flag: espn?.athlete?.flag?.href || "",
+      pos: pgaScoring.position || "",
+      total: pgaScoring.total || "",
+      today: pgaScoring.score || "",
+      thru: pgaScoring.thru || "",
+      currentHole: stroke.currentHoleDisplay || `Hole ${stroke.currentHole}`,
+      currentShot: stroke.currentShot,
+      currentShotDisplay: stroke.currentShotDisplay,
+      par: stroke.par,
+      yardage: stroke.yardage,
+      playByPlay: stroke.playByPlay,
+      scoreStatus: stroke.scoreStatus || "NONE",
+      finalStroke: stroke.finalStroke,
+    }));
+  }
+  return cards;
+}
+
+function liveShotCardHtml(s) {
+  const cls = ["pga-feed-card", `pga-feed-card--${(s.scoreStatus || "none").toLowerCase().replace("_", "-")}`, "pga-feed-card--live"];
+  return `
+    <article class="${cls.join(" ")}">
+      <div class="pga-feed-card__top">
+        <div class="pga-feed-card__player">
+          ${s.flag ? `<img src="${escape(s.flag)}" alt="" class="pga-flag" />` : ""}
+          <b>${escape(s.name)}</b>
+        </div>
+        <div class="pga-feed-card__meta">
+          <span class="pga-feed-card__pos">${escape(s.pos || "—")}</span>
+          <span class="pga-feed-card__today">Today ${escape(s.today || "—")}</span>
+          <span class="pga-feed-card__total">Total ${escape(s.total || "—")}</span>
+          <span class="pga-feed-card__hole">${escape(s.currentHole)} · Shot ${escape(String(s.currentShotDisplay || s.currentShot || ""))}</span>
+        </div>
+      </div>
+      <div class="pga-feed-card__pbp">${escape(s.playByPlay)}</div>
+      <div class="pga-feed-card__sub muted">Par ${s.par} · ${s.yardage} yds${s.finalStroke ? " · final stroke" : ""}</div>
+    </article>
+  `;
+}
+
+function holeRecapCardHtml(s) {
   const cls = ["pga-feed-card", `pga-feed-card--${(s.scoreType || "par").toLowerCase().replace("_", "-")}`];
   return `
     <article class="${cls.join(" ")}">
-      <div class="pga-feed-card__player">
-        ${s.flag ? `<img src="${escape(s.flag)}" alt="" class="pga-flag" />` : ""}
-        <b>${escape(s.player)}</b>
+      <div class="pga-feed-card__top">
+        <div class="pga-feed-card__player">
+          ${s.flag ? `<img src="${escape(s.flag)}" alt="" class="pga-flag" />` : ""}
+          <b>${escape(s.player)}</b>
+        </div>
+        <div class="pga-feed-card__meta">
+          ${s.pos ? `<span class="pga-feed-card__pos">${escape(s.pos)}</span>` : ""}
+          ${s.today ? `<span class="pga-feed-card__today">Today ${escape(s.today)}</span>` : ""}
+          ${s.total ? `<span class="pga-feed-card__total">Total ${escape(s.total)}</span>` : ""}
+          ${s.currentThru ? `<span class="pga-feed-card__hole">Thru ${escape(s.currentThru)}</span>` : ""}
+        </div>
       </div>
       <div class="pga-feed-card__detail">
         <span class="pga-feed-card__hole">Hole ${s.hole}</span>
         <span class="pga-feed-card__label">${escape(s.label)}</span>
         <span class="pga-feed-card__strokes">${s.strokes} (par ${s.par})</span>
+        <span class="pga-feed-card__rel ${s.relative.startsWith("-") ? "is-down" : s.relative === "E" ? "is-flat" : "is-up"}">${escape(s.relative)}</span>
       </div>
-      <div class="pga-feed-card__rel ${s.relative.startsWith("-") ? "is-down" : s.relative === "E" ? "is-flat" : "is-up"}">${escape(s.relative)}</div>
     </article>
   `;
 }
