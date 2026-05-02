@@ -2020,92 +2020,78 @@ img {
   background: var(--bg-page);
 }
 
-/* Connector lines — drawn from card edges using pseudo-elements */
+/* Connector lines — ESPN-style L-shaped wires between rounds */
+.bp-card-cell {
+  --connector-color: #cdd1d6;
+  --connector-thickness: 1.5px;
+}
+
 .bp-card-cell::before, .bp-card-cell::after {
   content: "";
   position: absolute;
-  background: var(--border);
+  background: var(--connector-color);
   pointer-events: none;
 }
 
-/* Horizontal stub from card → midpoint between rounds */
+/* Horizontal stub: full half of the gap between columns. The grid has 0 gap
+   so we extend slightly past the cell boundary into the column gutter. */
 .bp-card-cell.is-west::after {
-  right: -8px;
+  right: -10px;
   top: 50%;
-  width: 14px;
-  height: 1px;
+  width: 18px;
+  height: var(--connector-thickness);
+  transform: translateY(-50%);
 }
 
 .bp-card-cell.is-east::after {
-  left: -8px;
+  left: -10px;
   top: 50%;
-  width: 14px;
-  height: 1px;
+  width: 18px;
+  height: var(--connector-thickness);
+  transform: translateY(-50%);
 }
 
-/* Vertical line connecting paired R1 cards */
+/* Vertical pair connector between R1 paired cards (West) — only on the
+   first card of each pair, extending all the way down to the second. */
 .bp-card-cell.col-r1-w-0::before,
-.bp-card-cell.col-r1-w-1::before {
-  right: -8px;
-  width: 1px;
-  height: 100%;
+.bp-card-cell.col-r1-w-2::before {
+  right: -10px;
+  top: 50%;
+  width: var(--connector-thickness);
+  height: calc(100% + 16px);
 }
 
-.bp-card-cell.col-r1-w-0::before { top: 50%; }
-.bp-card-cell.col-r1-w-1::before { bottom: 50%; }
-
-.bp-card-cell.col-r1-w-2::before,
-.bp-card-cell.col-r1-w-3::before {
-  right: -8px;
-  width: 1px;
-  height: 100%;
+/* Vertical pair connector for R2 (West) — extends from R2-1 down to R2-2. */
+.bp-card-cell.col-r2-w-0::before {
+  right: -10px;
+  top: 50%;
+  width: var(--connector-thickness);
+  height: calc(200% + 16px);
 }
 
-.bp-card-cell.col-r1-w-2::before { top: 50%; }
-.bp-card-cell.col-r1-w-3::before { bottom: 50%; }
-
-/* East R1 mirror */
+/* East mirror of the R1 vertical connector */
 .bp-card-cell.col-r1-e-0::before,
-.bp-card-cell.col-r1-e-1::before {
-  left: -8px;
-  width: 1px;
-  height: 100%;
+.bp-card-cell.col-r1-e-2::before {
+  left: -10px;
+  top: 50%;
+  width: var(--connector-thickness);
+  height: calc(100% + 16px);
 }
 
-.bp-card-cell.col-r1-e-0::before { top: 50%; }
-.bp-card-cell.col-r1-e-1::before { bottom: 50%; }
-
-.bp-card-cell.col-r1-e-2::before,
-.bp-card-cell.col-r1-e-3::before {
-  left: -8px;
-  width: 1px;
-  height: 100%;
+.bp-card-cell.col-r2-e-0::before {
+  left: -10px;
+  top: 50%;
+  width: var(--connector-thickness);
+  height: calc(200% + 16px);
 }
 
-.bp-card-cell.col-r1-e-2::before { top: 50%; }
-.bp-card-cell.col-r1-e-3::before { bottom: 50%; }
-
-/* R2 vertical pairs (West) */
-.bp-card-cell.col-r2-w-0::before,
-.bp-card-cell.col-r2-w-1::before {
-  right: -8px;
-  width: 1px;
-  height: 100%;
+/* Live game cards get a slightly heavier connector */
+.bp-card-cell:has(.bp-card.is-live) {
+  --connector-color: #ef4444;
+  --connector-thickness: 2px;
 }
-.bp-card-cell.col-r2-w-0::before { top: 50%; }
-.bp-card-cell.col-r2-w-1::before { bottom: 50%; }
 
-/* R2 vertical pairs (East) */
-.bp-card-cell.col-r2-e-0::before,
-.bp-card-cell.col-r2-e-1::before {
-  left: -8px;
-  width: 1px;
-  height: 100%;
-}
-.bp-card-cell.col-r2-e-0::before { top: 50%; }
-.bp-card-cell.col-r2-e-1::before { bottom: 50%; }
-
-/* Center finals card no connectors */
+/* Center finals card has no connectors */
 .bp-card-cell.is-center::after,
 .bp-card-cell.is-center::before { display: none; }
 
