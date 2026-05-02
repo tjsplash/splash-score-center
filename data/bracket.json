@@ -1,45 +1,174 @@
 {
-  "year": "2026",
+  "year": "2025-26",
   "rounds": {
     "r1": {
-      "label": "First Round",
+      "label": "1st Round",
+      "subtitle": "Apr 18 – May 2",
       "east": [
-        { "seedHigh": 1, "seedLow": 8, "teams": ["DET", "ORL"], "names": ["Detroit Pistons", "Orlando Magic"], "records": ["60-22", "45-37"], "wins": [3, 2], "leader": "ORL", "series": "ORL leads 3-2", "tonightEventId": "401869417" },
-        { "seedHigh": 4, "seedLow": 5, "teams": ["CLE", "TOR"], "names": ["Cleveland Cavaliers", "Toronto Raptors"], "records": ["52-30", "46-36"], "wins": [3, 2], "leader": "CLE", "series": "CLE leads 3-2", "tonightEventId": "401869381" },
-        { "seedHigh": 2, "seedLow": 7, "teams": ["BOS", "PHI"], "names": ["Boston Celtics", "Philadelphia 76ers"], "records": ["56-26", "45-37"], "wins": [3, 3], "leader": null, "series": "Tied 3-3 · Game 7 tomorrow" },
-        { "seedHigh": 3, "seedLow": 6, "teams": ["MIL", "NYK"], "names": ["Milwaukee Bucks", "New York Knicks"], "records": ["50-32", "49-33"], "wins": [3, 2], "leader": "MIL", "series": "MIL leads 3-2" }
+        {
+          "seedHigh": 1, "seedLow": 8,
+          "teams": ["DET", "ORL"],
+          "names": ["Detroit Pistons", "Orlando Magic"],
+          "records": ["60-22", "45-37"],
+          "wins": [3, 3],
+          "leader": null,
+          "series": "Series tied 3-3",
+          "scores": [93, 79],
+          "tonightEventId": "401869417",
+          "scheduleNote": "Game 7 · TBD"
+        },
+        {
+          "seedHigh": 4, "seedLow": 5,
+          "teams": ["CLE", "TOR"],
+          "names": ["Cleveland Cavaliers", "Toronto Raptors"],
+          "records": ["52-30", "46-36"],
+          "wins": [3, 3],
+          "leader": null,
+          "series": "Series tied 3-3",
+          "scores": [110, 112],
+          "tonightEventId": "401869381",
+          "scheduleNote": "Game 7 · TBD"
+        },
+        {
+          "seedHigh": 3, "seedLow": 6,
+          "teams": ["NYK", "ATL"],
+          "names": ["New York Knicks", "Atlanta Hawks"],
+          "records": ["50-32", "44-38"],
+          "wins": [4, 2],
+          "leader": "NYK",
+          "series": "NYK wins 4-2"
+        },
+        {
+          "seedHigh": 2, "seedLow": 7,
+          "teams": ["BOS", "PHI"],
+          "names": ["Boston Celtics", "Philadelphia 76ers"],
+          "records": ["56-26", "45-37"],
+          "wins": [3, 3],
+          "leader": null,
+          "series": "Series tied 3-3",
+          "scheduleNote": "Game 7 · May 2, 4:30 PM"
+        }
       ],
       "west": [
-        { "seedHigh": 1, "seedLow": 8, "teams": ["SAS", "MEM"], "names": ["San Antonio Spurs", "Memphis Grizzlies"], "records": ["61-21", "44-38"], "wins": [4, 0], "leader": "SAS", "series": "SAS wins 4-0" },
-        { "seedHigh": 4, "seedLow": 5, "teams": ["LAL", "HOU"], "names": ["Los Angeles Lakers", "Houston Rockets"], "records": ["53-29", "52-30"], "wins": [3, 2], "leader": "LAL", "series": "LAL leads 3-2", "tonightEventId": "401869409" },
-        { "seedHigh": 2, "seedLow": 7, "teams": ["DEN", "GSW"], "names": ["Denver Nuggets", "Golden State Warriors"], "records": ["54-28", "47-35"], "wins": [3, 2], "leader": "DEN", "series": "DEN leads 3-2" },
-        { "seedHigh": 3, "seedLow": 6, "teams": ["MIN", "DAL"], "names": ["Minnesota Timberwolves", "Dallas Mavericks"], "records": ["52-30", "48-34"], "wins": [4, 2], "leader": "MIN", "series": "MIN wins 4-2" }
+        {
+          "seedHigh": 1, "seedLow": 8,
+          "teams": ["OKC", "PHX"],
+          "names": ["Oklahoma City Thunder", "Phoenix Suns"],
+          "records": ["61-21", "44-38"],
+          "wins": [4, 0],
+          "leader": "OKC",
+          "series": "OKC wins 4-0"
+        },
+        {
+          "seedHigh": 4, "seedLow": 5,
+          "teams": ["LAL", "HOU"],
+          "names": ["Los Angeles Lakers", "Houston Rockets"],
+          "records": ["53-29", "52-30"],
+          "wins": [3, 2],
+          "leader": "LAL",
+          "series": "LAL leads 3-2",
+          "tonightEventId": "401869409",
+          "scheduleNote": "Game 6 · live now"
+        },
+        {
+          "seedHigh": 3, "seedLow": 6,
+          "teams": ["MIN", "DEN"],
+          "names": ["Minnesota Timberwolves", "Denver Nuggets"],
+          "records": ["52-30", "48-34"],
+          "wins": [4, 2],
+          "leader": "MIN",
+          "series": "MIN wins 4-2"
+        },
+        {
+          "seedHigh": 2, "seedLow": 7,
+          "teams": ["SAS", "POR"],
+          "names": ["San Antonio Spurs", "Portland Trail Blazers"],
+          "records": ["59-23", "47-35"],
+          "wins": [4, 1],
+          "leader": "SAS",
+          "series": "SAS wins 4-1"
+        }
       ]
     },
     "r2": {
-      "label": "Second Round",
+      "label": "Conf. Semifinals",
+      "subtitle": "May 3 – 16",
       "east": [
-        { "teams": ["ORL/DET", "CLE/TOR"], "names": ["ORL or DET", "CLE or TOR"], "records": ["winner of 1/8", "winner of 4/5"], "wins": [0, 0], "leader": null, "series": "Awaiting first round" },
-        { "teams": ["BOS/PHI", "MIL/NYK"], "names": ["BOS or PHI", "MIL or NYK"], "records": ["winner of 2/7", "winner of 3/6"], "wins": [0, 0], "leader": null, "series": "Awaiting first round" }
+        {
+          "teams": ["1/8 winner", "4/5 winner"],
+          "names": ["DET / ORL winner", "CLE / TOR winner"],
+          "records": ["TBD", "TBD"],
+          "wins": [0, 0],
+          "leader": null,
+          "series": "Awaiting Game 7s"
+        },
+        {
+          "seedHigh": 3,
+          "teams": ["NYK", "2/7 winner"],
+          "names": ["New York Knicks", "BOS / PHI winner"],
+          "records": ["50-32", "TBD"],
+          "wins": [0, 0],
+          "leader": null,
+          "series": "Knicks awaiting opponent"
+        }
       ],
       "west": [
-        { "teams": ["SAS", "LAL/HOU"], "names": ["San Antonio Spurs", "LAL or HOU"], "records": ["61-21", "winner of 4/5"], "wins": [0, 0], "leader": null, "series": "Spurs awaiting opponent" },
-        { "teams": ["DEN/GSW", "MIN"], "names": ["DEN or GSW", "Minnesota Timberwolves"], "records": ["winner of 2/7", "52-30"], "wins": [0, 0], "leader": null, "series": "MIN awaiting opponent" }
+        {
+          "seedHigh": 1,
+          "teams": ["OKC", "4/5 winner"],
+          "names": ["Oklahoma City Thunder", "LAL / HOU winner"],
+          "records": ["61-21", "TBD"],
+          "wins": [0, 0],
+          "leader": null,
+          "series": "Thunder awaiting opponent"
+        },
+        {
+          "seedHigh": 2,
+          "teams": ["SAS", "MIN"],
+          "names": ["San Antonio Spurs", "Minnesota Timberwolves"],
+          "records": ["59-23", "52-30"],
+          "wins": [0, 0],
+          "leader": null,
+          "series": "Game 1 · May 4 · SAS -14.5"
+        }
       ]
     },
     "r3": {
-      "label": "Conference Championships",
+      "label": "Conf. Finals",
+      "subtitle": "May 18 – Jun 3",
       "east": [
-        { "teams": ["TBD", "TBD"], "names": ["East R2 winner", "East R2 winner"], "records": ["TBD", "TBD"], "wins": [0, 0], "leader": null, "series": "Eastern Conference Finals" }
+        {
+          "teams": ["TBD", "TBD"],
+          "names": ["East R2 winner", "East R2 winner"],
+          "records": ["TBD", "TBD"],
+          "wins": [0, 0],
+          "leader": null,
+          "series": "Eastern Conference Finals"
+        }
       ],
       "west": [
-        { "teams": ["TBD", "TBD"], "names": ["West R2 winner", "West R2 winner"], "records": ["TBD", "TBD"], "wins": [0, 0], "leader": null, "series": "Western Conference Finals" }
+        {
+          "teams": ["TBD", "TBD"],
+          "names": ["West R2 winner", "West R2 winner"],
+          "records": ["TBD", "TBD"],
+          "wins": [0, 0],
+          "leader": null,
+          "series": "Western Conference Finals"
+        }
       ]
     },
     "r4": {
       "label": "NBA Finals",
+      "subtitle": "Jun 4 – 22",
       "finals": [
-        { "teams": ["TBD", "TBD"], "names": ["East champion", "West champion"], "records": ["TBD", "TBD"], "wins": [0, 0], "leader": null, "series": "Best of 7" }
+        {
+          "teams": ["TBD", "TBD"],
+          "names": ["West champion", "East champion"],
+          "records": ["TBD", "TBD"],
+          "wins": [0, 0],
+          "leader": null,
+          "series": "Best of 7"
+        }
       ]
     }
   }

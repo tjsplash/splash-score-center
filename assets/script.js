@@ -1,7 +1,7 @@
 // Shared bootstrap: nav, sticky ticker, identity surface in header.
 
-import { fetchScoreboard, normalizeEvent, pollScoreboard, TONIGHT_EVENT_IDS } from "./espn.js";
-import { getIdentity } from "./identity.js";
+import { fetchScoreboard, normalizeEvent, pollScoreboard, pollMultiSportScoreboard, TONIGHT_EVENT_IDS, LEAGUES } from "./espn.js?v2026050101";
+import { getIdentity } from "./identity.js?v2026050101";
 
 // Single shared event bus.
 export const bus = new EventTarget();
@@ -33,50 +33,98 @@ function renderIdentityBadge() {
   }
 }
 
-// ---- Score ticker ----
+// ---- Multi-sport score ticker ----
 
-export async function mountTicker(rootEl) {
+const TICKER_LEAGUES = ["nba", "mlb", "nhl", "wnba"];
+
+export async function mountTicker(rootEl, opts = {}) {
   if (!rootEl) return () => {};
   const inner = document.createElement("div");
   inner.className = "ticker__inner";
   rootEl.appendChild(inner);
 
-  const stop = pollScoreboard((data) => {
-    const events = (data.events || []).map(normalizeEvent);
-    // Pin tonight's three games first, then any other NBA games today.
+  // League filter chips on top of ticker
+  const filter = document.createElement("div");
+  filter.className = "ticker__filter";
+  filter.innerHTML = TICKER_LEAGUES.map(lg => {
+    const cfg = LEAGUES[lg];
+    return `<button class="ticker__chip is-active" data-league="${lg}" type="button">
+      <span class="ticker__chip-emoji" aria-hidden="true">${cfg.emoji}</span>${cfg.label}
+    </button>`;
+  }).join("");
+  rootEl.insertBefore(filter, inner);
+
+  let activeLeagues = new Set(TICKER_LEAGUES);
+  filter.addEventListener("click", (e) => {
+    const btn = e.target.closest(".ticker__chip");
+    if (!btn) return;
+    const lg = btn.dataset.league;
+    if (activeLeagues.has(lg)) {
+      activeLeagues.delete(lg);
+      btn.classList.remove("is-active");
+    } else {
+      activeLeagues.add(lg);
+      btn.classList.add("is-active");
+    }
+    if (activeLeagues.size === 0) {
+      activeLeagues.add(lg);
+      btn.classList.add("is-active");
+    }
+    rerender();
+  });
+
+  let lastResults = [];
+
+  function rerender() {
+    const events = lastResults
+      .filter(r => activeLeagues.has(r.league))
+      .flatMap(r => (r.data.events || []).map(ev => normalizeEvent(ev, r.league)))
+      .filter(e => !e.isGolf);
+
+    // Sort: live first, then upcoming today, then final at the end. Pin NBA tonight first.
     events.sort((a, b) => {
       const aT = TONIGHT_EVENT_IDS.indexOf(a.id);
       const bT = TONIGHT_EVENT_IDS.indexOf(b.id);
       if (aT !== -1 && bT === -1) return -1;
       if (bT !== -1 && aT === -1) return 1;
-      return aT - bT;
+      if (aT !== -1 && bT !== -1) return aT - bT;
+      // live > pre > post
+      const ord = { in: 0, pre: 1, post: 2 };
+      return (ord[a.state] ?? 3) - (ord[b.state] ?? 3);
     });
-    inner.innerHTML = events.map(tickerCardHtml).join("");
-  });
+
+    inner.innerHTML = events.map(tickerCardHtml).join("") || `<span class="muted" style="padding:8px 12px;">No games today.</span>`;
+  }
+
+  const stop = pollMultiSportScoreboard((results) => {
+    lastResults = results;
+    rerender();
+  }, 20000, TICKER_LEAGUES);
+
   return stop;
 }
 
 function tickerCardHtml(ev) {
   const live = ev.isLive;
   const final = ev.state === "post";
-  const cls = ["ticker-card"];
+  const cls = ["ticker-card", `is-${ev.league}`];
   if (live) cls.push("is-live");
   if (final) cls.push("is-final");
 
-  const status = live ? `Q${ev.period} ${ev.clock || ""}`
+  const status = live
+    ? formatLiveStatus(ev)
     : final ? "FINAL"
     : ev.detail.replace(/^\d+\/\d+\s+-\s+/, "");
 
   const homeWinning = ev.home.score > ev.away.score && (live || final);
   const awayWinning = ev.away.score > ev.home.score && (live || final);
-
   const showScore = live || final;
 
   return `
-    <a href="game.html?id=${ev.id}" class="${cls.join(" ")}" aria-label="${ev.shortName}">
+    <a href="game.html?id=${ev.id}&league=${ev.league}" class="${cls.join(" ")}" aria-label="${ev.shortName}">
       <div class="ticker-card__status">
         <span class="ticker-card__status-state">${live ? '<span class="live-dot"></span>' : ""}${status}</span>
-        ${ev.broadcast ? `<span>${ev.broadcast}</span>` : ""}
+        <span class="ticker-card__league-tag">${LEAGUES[ev.league]?.label || ev.league.toUpperCase()}</span>
       </div>
       <img class="ticker-card__logo" src="${ev.away.logo}" alt="${ev.away.abbr}" />
       <span><span class="ticker-card__abbr">${ev.away.abbr}</span><span class="ticker-card__sub">${ev.away.record}</span></span>
@@ -86,6 +134,20 @@ function tickerCardHtml(ev) {
       <span class="ticker-card__score ${homeWinning ? "is-leading" : ""}">${showScore ? ev.home.score : ""}</span>
     </a>
   `;
+}
+
+function formatLiveStatus(ev) {
+  // Sport-specific live status formatting.
+  const lg = ev.league;
+  if (lg === "mlb") {
+    // ESPN sends like "Top 5th" in detail; period is half-inning.
+    return ev.detail || `Inn ${ev.period}`;
+  }
+  if (lg === "nhl") {
+    return `P${ev.period} ${ev.clock || ""}`;
+  }
+  // basketball default
+  return `Q${ev.period} ${ev.clock || ""}`;
 }
 
 // ---- Floating emoji animation ----

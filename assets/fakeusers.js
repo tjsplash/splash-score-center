@@ -3,8 +3,8 @@
 // real person is watching. Disabled automatically if the user has set
 // "splash-sc:no-fakes" in localStorage.
 
-import { get, set, chatKey, reactionsKey } from "./storage.js";
-import { teamHex } from "./script.js";
+import { get, set, chatKey, reactionsKey } from "./storage.js?v2026050101";
+import { teamHex } from "./script.js?v2026050101";
 
 const PERSONAS = [
   { name: "AnimalAndDan", team: null },

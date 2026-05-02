@@ -2,8 +2,8 @@
 // Prices update on every new ESPN play, and any swing >=5% emits an event
 // that the PBP module renders inline as a Market Move card.
 
-import { escape } from "./script.js";
-import { injectMarketMove } from "./pbp.js";
+import { escape } from "./script.js?v2026050101";
+import { injectMarketMove } from "./pbp.js?v2026050101";
 
 const SWING_THRESHOLD = 0.05;
 const HISTORY_LEN = 60;

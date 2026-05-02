@@ -1,20 +1,22 @@
 // Game Center controller: header + tabs + live polling.
 // Pulls a real ESPN summary on a 10s loop and fans data out to sub-modules.
 
-import { renderNav, mountTicker, escape } from "./script.js";
-import { fetchSummary, pollSummary, normalizeEvent, TEAM_LOGO } from "./espn.js";
-import { mountPbp, updatePbp } from "./pbp.js";
-import { mountBoxscore, updateBoxscore } from "./boxscore.js";
-import { mountMarkets, updateMarketsFromPlay, refreshSparklines } from "./markets.js";
-import { mountWinprob, updateWinprob } from "./winprob.js";
-import { mountChat } from "./chat.js";
-import { startFakeActivity } from "./fakeusers.js";
+import { renderNav, mountTicker, escape } from "./script.js?v2026050101";
+import { fetchSummary, pollSummary, normalizeEvent, TEAM_LOGO, LEAGUES } from "./espn.js?v2026050101";
+import { mountPbp, updatePbp } from "./pbp.js?v2026050101";
+import { mountBoxscore, updateBoxscore } from "./boxscore.js?v2026050101";
+import { mountMarkets, updateMarketsFromPlay, refreshSparklines } from "./markets.js?v2026050101";
+import { mountWinprob, updateWinprob } from "./winprob.js?v2026050101";
+import { mountChat } from "./chat.js?v2026050101";
+import { startFakeActivity } from "./fakeusers.js?v2026050101";
 
 renderNav("game");
 mountTicker(document.querySelector(".ticker"));
 
 const params = new URLSearchParams(location.search);
-const gameId = params.get("id") || "401869381";
+const gameId = params.get("id") || "401869409";
+const league = (params.get("league") || "nba").toLowerCase();
+const isBasketball = league === "nba" || league === "wnba";
 
 mountPbp(document.getElementById("panel-pbp"), { gameId });
 mountBoxscore(document.getElementById("panel-boxscore"), { gameId });
@@ -127,7 +129,7 @@ pollSummary(gameId, async (summary) => {
       }
     }
   }
-}, 10000);
+}, 10000, league);
 
 function bootstrapHeader(summary) {
   const c = summary.header?.competitions?.[0];
@@ -228,7 +230,11 @@ function refreshHeader(summary) {
   const awayRecord = away.records?.[0]?.summary || "";
 
   const broadcast = (c.broadcasts?.[0]?.names || []).join(", ");
-  const detail = live ? `Q${status.period} · ${status.displayClock}`
+  const periodPrefix = league === "mlb" ? "" : league === "nhl" ? "P" : "Q";
+  const liveDetail = league === "mlb"
+    ? (status.shortDetail || `Inn ${status.period}`)
+    : `${periodPrefix}${status.period} · ${status.displayClock || ""}`;
+  const detail = live ? liveDetail
     : final ? "Final"
     : status.type.shortDetail;
 

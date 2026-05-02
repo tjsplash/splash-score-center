@@ -1,34 +1,55 @@
-// ESPN public API client.
+// ESPN public API client — multi-sport.
 // CORS-enabled, no auth. Polls scoreboard + per-game summary endpoints.
 
-const SCOREBOARD = "https://site.api.espn.com/apis/site/v2/sports/basketball/nba/scoreboard";
-const SUMMARY = "https://site.api.espn.com/apis/site/v2/sports/basketball/nba/summary";
+// League configuration — sport path + league slug for ESPN URLs.
+export const LEAGUES = {
+  nba:  { sport: "basketball", league: "nba",  label: "NBA",  emoji: "🏀", logoLeague: "nba"  },
+  wnba: { sport: "basketball", league: "wnba", label: "WNBA", emoji: "🏀", logoLeague: "wnba" },
+  mlb:  { sport: "baseball",   league: "mlb",  label: "MLB",  emoji: "⚾", logoLeague: "mlb"  },
+  nhl:  { sport: "hockey",     league: "nhl",  label: "NHL",  emoji: "🏒", logoLeague: "nhl"  },
+  pga:  { sport: "golf",       league: "pga",  label: "PGA",  emoji: "⛳", logoLeague: null   },
+};
 
-const TEAM_LOGO = (abbr) => `https://a.espncdn.com/i/teamlogos/nba/500/${abbr.toLowerCase()}.png`;
+const SCOREBOARD_URL = (lg) => `https://site.api.espn.com/apis/site/v2/sports/${LEAGUES[lg].sport}/${LEAGUES[lg].league}/scoreboard`;
+const SUMMARY_URL = (lg) => `https://site.api.espn.com/apis/site/v2/sports/${LEAGUES[lg].sport}/${LEAGUES[lg].league}/summary`;
+
+// Backwards-compatible NBA endpoints.
+const SCOREBOARD = SCOREBOARD_URL("nba");
+const SUMMARY = SUMMARY_URL("nba");
+
+const TEAM_LOGO = (abbr, league = "nba") => {
+  const lg = LEAGUES[league]?.logoLeague || "nba";
+  return `https://a.espncdn.com/i/teamlogos/${lg}/500/${abbr.toLowerCase()}.png`;
+};
 
 export const TONIGHT_EVENT_IDS = ["401869417", "401869381", "401869409"];
 
-export async function fetchScoreboard() {
-  const r = await fetch(SCOREBOARD);
-  if (!r.ok) throw new Error(`scoreboard ${r.status}`);
+export async function fetchScoreboard(league = "nba") {
+  const r = await fetch(SCOREBOARD_URL(league));
+  if (!r.ok) throw new Error(`scoreboard ${league} ${r.status}`);
   return await r.json();
 }
 
-export async function fetchSummary(eventId) {
-  const r = await fetch(`${SUMMARY}?event=${eventId}`);
-  if (!r.ok) throw new Error(`summary ${r.status}`);
+export async function fetchSummary(eventId, league = "nba") {
+  const r = await fetch(`${SUMMARY_URL(league)}?event=${eventId}`);
+  if (!r.ok) throw new Error(`summary ${league} ${r.status}`);
   return await r.json();
 }
 
-export function pollScoreboard(callback, intervalMs = 15000) {
+// Fetch scoreboards across multiple leagues in parallel.
+export async function fetchMultiSportScoreboard(leagues = ["nba", "mlb", "nhl", "wnba"]) {
+  const results = await Promise.allSettled(leagues.map(lg => fetchScoreboard(lg).then(d => ({ league: lg, data: d }))));
+  return results.filter(r => r.status === "fulfilled").map(r => r.value);
+}
+
+export function pollScoreboard(callback, intervalMs = 15000, league = "nba") {
   let stopped = false;
   let timer = null;
   let firstDone = false;
   async function tick() {
     if (stopped) return;
-    // Always do the first fetch; subsequent fetches honor visibility for cost.
     if (!firstDone || !document.hidden) {
-      try { callback(await fetchScoreboard()); firstDone = true; }
+      try { callback(await fetchScoreboard(league)); firstDone = true; }
       catch (e) { console.warn("scoreboard poll", e); }
     }
     timer = setTimeout(tick, intervalMs);
@@ -37,14 +58,30 @@ export function pollScoreboard(callback, intervalMs = 15000) {
   return () => { stopped = true; if (timer) clearTimeout(timer); };
 }
 
-export function pollSummary(eventId, callback, intervalMs = 10000) {
+export function pollMultiSportScoreboard(callback, intervalMs = 20000, leagues = ["nba", "mlb", "nhl", "wnba"]) {
   let stopped = false;
   let timer = null;
   let firstDone = false;
   async function tick() {
     if (stopped) return;
     if (!firstDone || !document.hidden) {
-      try { callback(await fetchSummary(eventId)); firstDone = true; }
+      try { callback(await fetchMultiSportScoreboard(leagues)); firstDone = true; }
+      catch (e) { console.warn("multi-sport poll", e); }
+    }
+    timer = setTimeout(tick, intervalMs);
+  }
+  tick();
+  return () => { stopped = true; if (timer) clearTimeout(timer); };
+}
+
+export function pollSummary(eventId, callback, intervalMs = 10000, league = "nba") {
+  let stopped = false;
+  let timer = null;
+  let firstDone = false;
+  async function tick() {
+    if (stopped) return;
+    if (!firstDone || !document.hidden) {
+      try { callback(await fetchSummary(eventId, league)); firstDone = true; }
       catch (e) { console.warn("summary poll", e); }
     }
     timer = setTimeout(tick, intervalMs);
@@ -54,41 +91,71 @@ export function pollSummary(eventId, callback, intervalMs = 10000) {
 }
 
 // Compact normalizer for an ESPN scoreboard event into ticker shape.
-export function normalizeEvent(ev) {
+export function normalizeEvent(ev, league = "nba") {
   const c = ev.competitions[0];
   const status = c.status.type;
-  const home = c.competitors.find(x => x.homeAway === "home");
-  const away = c.competitors.find(x => x.homeAway === "away");
+  const competitors = c.competitors || [];
+  // Team sports: home / away. Golf: a list of athletes (no homeAway).
+  if (LEAGUES[league]?.sport === "golf") {
+    return normalizeGolfEvent(ev, league);
+  }
+  const home = competitors.find(x => x.homeAway === "home") || competitors[0];
+  const away = competitors.find(x => x.homeAway === "away") || competitors[1];
   return {
+    league,
     id: ev.id,
     shortName: ev.shortName,
-    state: status.state, // pre / in / post
+    state: status.state,
     detail: status.shortDetail,
     completed: status.completed,
     isLive: status.state === "in",
-    home: {
-      abbr: home.team.abbreviation,
-      name: home.team.shortDisplayName || home.team.name,
-      fullName: home.team.displayName,
-      record: (home.records?.[0]?.summary) || "",
-      score: parseInt(home.score, 10) || 0,
-      logo: home.team.logo || TEAM_LOGO(home.team.abbreviation),
-      color: home.team.color,
-      winner: home.winner === true,
-    },
-    away: {
-      abbr: away.team.abbreviation,
-      name: away.team.shortDisplayName || away.team.name,
-      fullName: away.team.displayName,
-      record: (away.records?.[0]?.summary) || "",
-      score: parseInt(away.score, 10) || 0,
-      logo: away.team.logo || TEAM_LOGO(away.team.abbreviation),
-      color: away.team.color,
-      winner: away.winner === true,
-    },
+    home: normalizeTeam(home, league),
+    away: normalizeTeam(away, league),
     period: c.status.period,
     clock: c.status.displayClock,
     broadcast: (c.broadcasts?.[0]?.names || []).join(", "),
+    note: (c.notes?.[0]?.headline) || "",
+    // Sport-specific situation strings (e.g. baseball: "1st & 2nd, 1 out").
+    situation: c.situation || null,
+  };
+}
+
+function normalizeTeam(t, league) {
+  if (!t) return { abbr: "", name: "", fullName: "", record: "", score: 0, logo: "", color: "", winner: false };
+  const abbr = t.team?.abbreviation || "";
+  return {
+    abbr,
+    name: t.team?.shortDisplayName || t.team?.name || abbr,
+    fullName: t.team?.displayName || abbr,
+    record: (t.records?.[0]?.summary) || "",
+    score: parseInt(t.score, 10) || 0,
+    logo: t.team?.logo || (abbr ? TEAM_LOGO(abbr, league) : ""),
+    color: t.team?.color || "",
+    winner: t.winner === true,
+    linescores: t.linescores || [],
+    leader: t.leaders || [],
+  };
+}
+
+function normalizeGolfEvent(ev, league = "pga") {
+  const c = ev.competitions?.[0] || {};
+  const status = c.status?.type || ev.status?.type || {};
+  return {
+    league,
+    id: ev.id,
+    shortName: ev.shortName || ev.name,
+    name: ev.name,
+    state: status.state || "pre",
+    detail: status.shortDetail || ev.date || "",
+    completed: status.completed,
+    isLive: status.state === "in",
+    isGolf: true,
+    course: c.course?.name || ev.venue?.fullName || "",
+    leaders: c.competitors ? c.competitors.slice(0, 8).map(p => ({
+      name: p.athlete?.shortName || p.athlete?.displayName || "",
+      score: p.score || p.linescores?.[p.linescores.length - 1]?.value || "",
+      country: p.athlete?.flag?.alt || "",
+    })) : [],
   };
 }
 

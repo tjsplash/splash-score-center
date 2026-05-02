@@ -2,14 +2,14 @@
 <html lang="en">
 <head>
   <meta charset="utf-8" />
-  <title>Splash Score Center · Home</title>
+  <title>Splash Score Center · NBA Playoff Bracket</title>
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <meta name="description" content="Live NBA play-by-play, social reactions, and Polymarket-context — all in one place. Splash Score Center, a Splash Sports prototype." />
+  <meta name="description" content="2026 NBA Playoff bracket. Live series state, click any matchup to open Game Center." />
   <link rel="preconnect" href="https://a.espncdn.com" crossorigin />
   <link rel="preconnect" href="https://site.api.espn.com" crossorigin />
   <link rel="stylesheet" href="assets/styles.css" />
 </head>
-<body data-page="home">
+<body data-page="bracket">
   <header class="nav">
     <a href="index.html" class="nav__logo" aria-label="Splash Score Center home">
       <svg class="nav__logo-mark" viewBox="0 0 32 32" fill="currentColor" aria-hidden="true">
@@ -30,26 +30,34 @@
     </div>
   </header>
 
-  <div class="ticker" aria-label="Tonight's NBA games"></div>
+  <div class="ticker" aria-label="Tonight's games"></div>
 
-  <main class="page">
-    <h1 class="page-title">Tonight's games <span class="section-heading__pill">Live data via ESPN</span></h1>
-    <section class="tonight" id="tonight"></section>
+  <main class="page page--wide">
+    <div class="bp-header">
+      <div>
+        <h1 class="bp-title" id="bp-title">NBA Playoffs Bracket</h1>
+        <p class="bp-subtitle" id="bp-year-label"></p>
+      </div>
+      <div class="bp-year-select">
+        <select id="bp-year">
+          <option value="2025-26">2025-26</option>
+          <option value="2024-25">2024-25</option>
+          <option value="2023-24">2023-24</option>
+        </select>
+      </div>
+    </div>
 
-    <section class="bracket-teaser" id="bracket-teaser">
-      <a href="bracket.html" class="bracket-teaser__link">
-        <div>
-          <div class="bracket-teaser__eyebrow">NBA Playoffs · 2025-26</div>
-          <h2 class="bracket-teaser__title">Full Playoff Bracket</h2>
-          <p class="bracket-teaser__sub">Two Game 7s set up across the East. SAS and OKC through to round two. Tap to view the full bracket.</p>
-        </div>
-        <span class="bracket-teaser__cta">View bracket →</span>
-      </a>
-    </section>
+    <div class="bp-rounds-header" id="bp-rounds-header"></div>
+    <div class="bp-conf-labels">
+      <span>Western Conference</span>
+      <span>Eastern Conference</span>
+    </div>
+
+    <div class="bracket-grid" id="bracket-grid"></div>
   </main>
 
   <nav class="tabbar" aria-label="Primary">
-    <a href="index.html" data-tab="home" class="is-active">
+    <a href="index.html" data-tab="home">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 12L12 3l9 9"/><path d="M5 10v10h14V10"/></svg>
       <span>Home</span>
     </a>
@@ -57,12 +65,16 @@
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M3 10h18M9 4v16"/></svg>
       <span>Scores</span>
     </a>
-    <a href="game.html?id=401869417" data-tab="game">
+    <a href="bracket.html" data-tab="bracket" class="is-active">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h6v4H3zM3 14h6v4H3zM15 4h6v6h-6zM15 14h6v6h-6zM9 8h6M9 16h6"/></svg>
+      <span>Bracket</span>
+    </a>
+    <a href="game.html?id=401869409" data-tab="game">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3v18M6 6c4 4 8 8 12 12M18 6c-4 4-8 8-12 12"/></svg>
       <span>Live</span>
     </a>
   </nav>
 
-  <script type="module" src="assets/home.js?v2026050101"></script>
+  <script type="module" src="assets/bracket-page.js?v2026050101"></script>
 </body>
 </html>

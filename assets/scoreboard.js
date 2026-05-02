@@ -1,47 +1,90 @@
-// Scoreboard page: ESPN-style list of every NBA game today.
+// Multi-sport scoreboard. League tabs across the top; each league has its own
+// list (NBA, MLB, NHL, WNBA, PGA leaderboard). Live data from ESPN's public
+// scoreboard endpoints.
 
-import { renderNav, mountTicker, escape } from "./script.js";
-import { fetchScoreboard, normalizeEvent, pollScoreboard, fetchSummary } from "./espn.js";
+import { renderNav, mountTicker, escape } from "./script.js?v2026050101";
+import {
+  fetchScoreboard, fetchSummary, normalizeEvent,
+  pollScoreboard, LEAGUES, TEAM_LOGO,
+} from "./espn.js?v2026050101";
 
 renderNav("scoreboard");
 mountTicker(document.querySelector(".ticker"));
 
 const list = document.getElementById("sb-list");
 const dateLabel = document.getElementById("sb-date");
+const leagueBar = document.getElementById("sb-league-bar");
 
+const ORDER = ["nba", "mlb", "nhl", "wnba", "pga"];
+
+let activeLeague = (new URLSearchParams(location.search).get("league") || "nba").toLowerCase();
+if (!ORDER.includes(activeLeague)) activeLeague = "nba";
+
+leagueBar.innerHTML = ORDER.map(lg => `
+  <button class="sb-tab ${lg === activeLeague ? "is-active" : ""}" data-league="${lg}" type="button">
+    <span class="sb-tab__emoji">${LEAGUES[lg].emoji}</span>
+    ${LEAGUES[lg].label}
+  </button>
+`).join("");
+leagueBar.addEventListener("click", (e) => {
+  const btn = e.target.closest("[data-league]");
+  if (!btn) return;
+  const lg = btn.dataset.league;
+  if (lg === activeLeague) return;
+  activeLeague = lg;
+  leagueBar.querySelectorAll(".sb-tab").forEach(b => b.classList.toggle("is-active", b === btn));
+  history.replaceState(null, "", `?league=${lg}`);
+  list.innerHTML = `<p class="muted">Loading ${LEAGUES[lg].label}…</p>`;
+  startPolling();
+});
+
+dateLabel.textContent = new Date().toLocaleDateString([], {
+  weekday: "long", month: "long", day: "numeric", year: "numeric"
+});
+
+let stopPoll = null;
 const summaryCache = new Map();
 
-async function refresh() {
+function startPolling() {
+  if (stopPoll) stopPoll();
+  if (activeLeague === "pga") {
+    refreshPga();
+    stopPoll = pollScoreboard(refreshPga, 30000, "pga");
+  } else {
+    refreshTeamSport();
+    stopPoll = pollScoreboard(() => refreshTeamSport(), 15000, activeLeague);
+  }
+}
+
+async function refreshTeamSport() {
   try {
-    const data = await fetchScoreboard();
-    // Use the local "today" rather than ESPN's UTC-derived day, which can flip a day in PT.
-    dateLabel.textContent = new Date().toLocaleDateString([], {
-      weekday: "long", month: "long", day: "numeric", year: "numeric"
-    });
-    const events = (data.events || []).map(normalizeEvent);
-    list.innerHTML = events.map(scoreboardCardHtml).join("") || `<p class="muted">No NBA games scheduled today.</p>`;
+    const data = await fetchScoreboard(activeLeague);
+    const events = (data.events || []).map(ev => normalizeEvent(ev, activeLeague));
+    if (!events.length) {
+      list.innerHTML = `<p class="muted">No ${LEAGUES[activeLeague].label} games scheduled today.</p>`;
+      return;
+    }
+    list.innerHTML = events.map(ev => sbCardHtml(ev)).join("");
     list.querySelectorAll("[data-event-id]").forEach(el => {
       el.addEventListener("click", () => {
-        window.location.href = `game.html?id=${el.dataset.eventId}`;
+        location.href = `game.html?id=${el.dataset.eventId}&league=${activeLeague}`;
       });
     });
-    // Lazy-load leaders + line score per card.
     events.forEach(ev => hydrateCard(ev));
   } catch (e) {
     list.innerHTML = `<p class="muted">Couldn't load scoreboard (${e.message}).</p>`;
   }
 }
 
-function scoreboardCardHtml(ev) {
+function sbCardHtml(ev) {
   const live = ev.isLive;
   const final = ev.state === "post";
   const showScore = live || final;
-
-  const homeWin = (final && ev.home.score > ev.away.score) || (live && ev.home.score > ev.away.score);
-  const awayWin = (final && ev.away.score > ev.home.score) || (live && ev.away.score > ev.home.score);
+  const homeWin = (live || final) && ev.home.score > ev.away.score;
+  const awayWin = (live || final) && ev.away.score > ev.home.score;
 
   const status = live
-    ? `<span class="sb-card__status is-live"><span class="dot"></span>Q${ev.period} · ${ev.clock}</span>`
+    ? `<span class="sb-card__status is-live"><span class="dot"></span>${escape(ev.detail)}</span>`
     : final ? `<span class="sb-card__status">FINAL</span>`
     : `<span class="sb-card__status">${escape(ev.detail)}</span>`;
 
@@ -68,7 +111,6 @@ function scoreboardCardHtml(ev) {
 }
 
 async function hydrateCard(ev) {
-  // Pre-game: show series series info, no leaders.
   const leadersEl = list.querySelector(`[data-leaders="${ev.id}"]`);
   const lineEl = list.querySelector(`[data-line="${ev.id}"]`);
   if (!leadersEl) return;
@@ -78,12 +120,14 @@ async function hydrateCard(ev) {
     return;
   }
   try {
-    let summary = summaryCache.get(ev.id);
+    const cacheKey = `${activeLeague}:${ev.id}`;
+    let summary = summaryCache.get(cacheKey);
     if (!summary) {
-      summary = await fetchSummary(ev.id);
-      summaryCache.set(ev.id, summary);
+      summary = await fetchSummary(ev.id, activeLeague);
+      summaryCache.set(cacheKey, summary);
     }
-    // Leaders.
+
+    // Sport-specific leader categories
     const leaders = (summary.leaders || []).slice(0, 2).flatMap(t =>
       (t.leaders || []).slice(0, 2).map(l => ({
         team: t.team?.abbreviation || "",
@@ -101,14 +145,13 @@ async function hydrateCard(ev) {
           `).join("")}
         </div>`
       : `<span class="muted">No leaders yet.</span>`;
-    // Line score.
+
+    // Line score (innings/quarters/periods)
     if (lineEl) {
-      const awayComp = summary.header?.competitions?.[0]?.competitors;
-      if (awayComp) {
-        const home = awayComp.find(c => c.homeAway === "home");
-        const away = awayComp.find(c => c.homeAway === "away");
-        // ESPN sometimes returns linescore entries with null/undefined values for
-        // upcoming or not-yet-reported quarters — coerce to a sentinel.
+      const competitors = summary.header?.competitions?.[0]?.competitors;
+      if (competitors) {
+        const home = competitors.find(c => c.homeAway === "home");
+        const away = competitors.find(c => c.homeAway === "away");
         const toCells = (arr) => (arr || []).map(s => {
           const v = s?.value;
           return (v === null || v === undefined || isNaN(Number(v))) ? null : Math.floor(Number(v));
@@ -116,8 +159,9 @@ async function hydrateCard(ev) {
         const homeLine = toCells(home?.linescores);
         const awayLine = toCells(away?.linescores);
         if (homeLine.length || awayLine.length) {
-          const max = Math.max(homeLine.length, awayLine.length, 4);
-          const heads = Array.from({ length: max }, (_, i) => `<span class="qhead">Q${i + 1}</span>`).join("");
+          const max = Math.max(homeLine.length, awayLine.length, periodCount(activeLeague));
+          const head = periodHead(activeLeague);
+          const heads = Array.from({ length: max }, (_, i) => `<span class="qhead">${head}${i + 1}</span>`).join("");
           const awayCells = Array.from({ length: max }, (_, i) =>
             `<span>${awayLine[i] != null ? awayLine[i] : "—"}</span>`).join("");
           const homeCells = Array.from({ length: max }, (_, i) =>
@@ -130,10 +174,77 @@ async function hydrateCard(ev) {
         }
       }
     }
-  } catch {
-    /* ignore */
+  } catch {}
+}
+
+function periodCount(league) {
+  if (league === "mlb") return 9;
+  if (league === "nhl") return 3;
+  if (league === "wnba") return 4;
+  return 4; // nba
+}
+
+function periodHead(league) {
+  if (league === "mlb") return "";
+  if (league === "nhl") return "P";
+  return "Q";
+}
+
+// PGA leaderboard rendering — different shape from team sports.
+async function refreshPga() {
+  try {
+    const data = await fetchScoreboard("pga");
+    const events = data.events || [];
+    if (!events.length) {
+      list.innerHTML = `<p class="muted">No PGA tournament today.</p>`;
+      return;
+    }
+    list.innerHTML = events.map(pgaTournamentHtml).join("");
+  } catch (e) {
+    list.innerHTML = `<p class="muted">Couldn't load PGA (${e.message}).</p>`;
   }
 }
 
-refresh();
-pollScoreboard(refresh, 15000);
+function pgaTournamentHtml(ev) {
+  const c = ev.competitions?.[0] || {};
+  const status = c.status?.type?.shortDetail || ev.status?.type?.shortDetail || "";
+  const courseName = c.course?.name || ev.venue?.fullName || "";
+  const players = (c.competitors || []).slice(0, 20).map(p => ({
+    pos: p.status?.position?.id || p.status?.position || "",
+    name: p.athlete?.shortName || p.athlete?.displayName || "",
+    score: p.score || "",
+    today: (p.linescores && p.linescores.length) ? (p.linescores[p.linescores.length - 1]?.value ?? "") : "",
+    thru: p.status?.thru || "",
+    flag: p.athlete?.flag?.href || "",
+  }));
+
+  return `
+    <article class="pga-card">
+      <header class="pga-card__header">
+        <div>
+          <div class="pga-card__eyebrow">PGA · ${escape(status)}</div>
+          <h2 class="pga-card__title">${escape(ev.name || ev.shortName || "Tournament")}</h2>
+          <div class="pga-card__course">${escape(courseName)}</div>
+        </div>
+      </header>
+      <table class="pga-leaderboard">
+        <thead>
+          <tr><th>Pos</th><th>Player</th><th>Total</th><th>Today</th><th>Thru</th></tr>
+        </thead>
+        <tbody>
+          ${players.map(p => `
+            <tr>
+              <td class="pga-leaderboard__pos">${escape(String(p.pos || ""))}</td>
+              <td class="pga-leaderboard__player">${p.flag ? `<img src="${escape(p.flag)}" alt="" class="pga-flag" />` : ""}<b>${escape(p.name)}</b></td>
+              <td class="pga-leaderboard__score">${escape(String(p.score || ""))}</td>
+              <td>${escape(String(p.today || ""))}</td>
+              <td>${escape(String(p.thru || ""))}</td>
+            </tr>
+          `).join("")}
+        </tbody>
+      </table>
+    </article>
+  `;
+}
+
+startPolling();
