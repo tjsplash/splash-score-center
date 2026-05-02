@@ -1,9 +1,9 @@
 // Game chat right rail — Real Sports-style with quick emojis,
 // per-message reactions, and floating emoji animation.
 
-import { escape, teamHex, spawnFloatingEmoji } from "./script.js?v2026050108";
-import { get, set, chatKey } from "./storage.js?v2026050108";
-import { requireIdentity, getIdentity } from "./identity.js?v2026050108";
+import { escape, teamHex, spawnFloatingEmoji } from "./script.js?v2026050109";
+import { get, set, chatKey } from "./storage.js?v2026050109";
+import { requireIdentity, getIdentity } from "./identity.js?v2026050109";
 
 const QUICK_EMOJIS = ["🔥", "😱", "🤯", "💀", "🏀", "🤡", "🚨", "💯"];
 

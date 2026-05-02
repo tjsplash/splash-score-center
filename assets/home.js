@@ -2,13 +2,13 @@
 // selected league, and a row of action buttons at the bottom that surface
 // bracket / standings / season leaders inline (ESPN-style).
 
-import { renderNav, mountTicker, escape, teamHex } from "./script.js?v2026050108";
+import { renderNav, mountTicker, escape, teamHex } from "./script.js?v2026050109";
 import {
   fetchScoreboard, fetchSummary, normalizeEvent, pollScoreboard, LEAGUES,
-} from "./espn.js?v2026050108";
+} from "./espn.js?v2026050109";
 import {
-  matchEspnToSplash, popularPropsForGame,
-} from "./quickpicks.js?v2026050108";
+  matchEspnToSplash, popularPropsForGame, playerInitials,
+} from "./quickpicks.js?v2026050109";
 
 const HOME_LEAGUES = ["nba", "mlb", "nhl"];
 
@@ -254,12 +254,7 @@ async function hydratePreview(ev) {
         <div class="tc-preview-col">
           <div class="tc-preview-col__title"><span class="tc-preview-col__icon">🎯</span> Splash Quick Picks <span class="tc-preview-col__hint">popular</span></div>
           <ul class="tc-preview-list">
-            ${qpProps.map(p => `
-              <li class="tc-preview-prop">
-                <span class="tc-preview-prop__player">${escape(p.entity_name)}</span>
-                <span class="tc-preview-prop__type">${escape(p.type_display)}</span>
-                <span class="tc-preview-prop__line">${formatLine(p.line)}</span>
-              </li>`).join("")}
+            ${qpProps.map(p => qpPropRowHtml(p, activeLeague)).join("")}
           </ul>
         </div>` : ""}
       ${previewMarkets.length ? `
@@ -343,6 +338,30 @@ function previewSide(raw, homeT, awayT, isYes) {
   // Team-based market — color by team
   const team = (raw.side || "").split(" ")[0];
   return { label: raw.side, price: raw.price, color: "#" + teamHex(team) };
+}
+
+function formatLine(line) {
+  if (line == null) return "";
+  return Number.isInteger(line) ? `${line}.5` : String(line);
+}
+
+function qpPropRowHtml(p, league) {
+  const teamAlias = p.team?.alias;
+  const teamColor = p.team?.primary_color || "#6b7280";
+  const teamLogo = teamAlias
+    ? `<img class="tc-qp__team-logo" src="https://a.espncdn.com/i/teamlogos/${league}/500/${teamAlias.toLowerCase()}.png" alt="${escape(teamAlias)}" />`
+    : `<span class="tc-qp__team-logo tc-qp__team-logo--blank"></span>`;
+  return `
+    <li class="tc-qp" style="--team-color:${escape(teamColor)}">
+      <span class="tc-qp__avatar" aria-hidden="true">${escape(playerInitials(p.entity_name))}</span>
+      ${teamLogo}
+      <span class="tc-qp__main">
+        <span class="tc-qp__player">${escape(p.entity_name)}</span>
+        <span class="tc-qp__type">${escape(p.type_display)}</span>
+      </span>
+      <span class="tc-qp__line">${formatLine(p.line)}</span>
+    </li>
+  `;
 }
 
 function yesterdayYYYYMMDD() {

@@ -3,11 +3,11 @@
 // opposite (synthesized when only one side exists in the seed data) so every
 // card shows yes/no percentages plus a dual-line history chart.
 
-import { escape, teamHex } from "./script.js?v2026050108";
-import { injectMarketMove } from "./pbp.js?v2026050108";
+import { escape, teamHex } from "./script.js?v2026050109";
+import { injectMarketMove } from "./pbp.js?v2026050109";
 import {
-  matchEspnToSplash, fetchPropsForGame, groupPropsByPlayer,
-} from "./quickpicks.js?v2026050108";
+  matchEspnToSplash, groupPropsByPlayer, playerInitials,
+} from "./quickpicks.js?v2026050109";
 
 const SWING_THRESHOLD = 0.05;
 const HISTORY_LEN = 60;
@@ -229,21 +229,17 @@ async function hydrateSplashPicks(cfg, homeAbbrIn, awayAbbrIn) {
   if (!home || !away) return;
   const ev = { league, home: { abbr: home }, away: { abbr: away } };
   const match = await matchEspnToSplash(ev);
-  if (!match) return;
-  let props;
-  try { props = await fetchPropsForGame(match.id, match.league); }
-  catch { return; }
-  if (!props.length) return;
+  if (!match || !match.props?.length) return;
 
-  const groups = groupPropsByPlayer(props);
-  const propTypes = uniqueOrdered(props.map(p => p.type_display));
+  const groups = groupPropsByPlayer(match.props);
+  const propTypes = uniqueOrdered(match.props.map(p => p.type_display));
 
   splashPropsHtml = `
     <section class="splash-picks">
       <header class="splash-picks__header">
         <div>
           <div class="splash-picks__eyebrow">Splash Quick Picks</div>
-          <h3 class="splash-picks__title">Player props <span class="splash-picks__count">${groups.length} players · ${props.length} props</span></h3>
+          <h3 class="splash-picks__title">Players and Teams <span class="splash-picks__count">${groups.length} players · ${match.props.length} props</span></h3>
         </div>
         <a class="splash-picks__cta" href="https://app.splashsports.com/quick-picks/board" target="_blank" rel="noopener">Play on Splash ↗</a>
       </header>
@@ -266,14 +262,33 @@ function uniqueOrdered(arr) {
 }
 
 function playerCardHtml(g) {
+  const teamLogo = g.team_alias
+    ? `<img class="qp-player__team-logo" src="https://a.espncdn.com/i/teamlogos/nba/500/${g.team_alias.toLowerCase()}.png" alt="${escape(g.team_alias)}" />`
+    : "";
+  const teamColor = g.team_color || "#6b7280";
+  const playLink = "https://app.splashsports.com/quick-picks/board";
   return `
-    <div class="qp-player">
-      <div class="qp-player__name">${escape(g.entity_name)}</div>
+    <div class="qp-player" style="--team-color:${escape(teamColor)}">
+      <div class="qp-player__head">
+        <div class="qp-player__avatar" aria-hidden="true">${escape(playerInitials(g.entity_name))}</div>
+        ${teamLogo}
+        <div class="qp-player__name-wrap">
+          <div class="qp-player__name">${escape(g.entity_name)}</div>
+          <div class="qp-player__team">${escape(g.team_alias || "")}${g.position ? ` · ${escape(g.position)}` : ""}</div>
+        </div>
+      </div>
       <div class="qp-player__props">
         ${g.props.map(p => `
           <div class="qp-prop">
             <span class="qp-prop__type">${escape(p.type_display)}</span>
-            <span class="qp-prop__line">${formatLine(p.line)}</span>
+            <a class="qp-pill qp-pill--more" href="${escape(playLink)}" target="_blank" rel="noopener">
+              <span class="qp-pill__verb">More</span>
+              <span class="qp-pill__line">${formatLine(p.line)}</span>
+            </a>
+            <a class="qp-pill qp-pill--less" href="${escape(playLink)}" target="_blank" rel="noopener">
+              <span class="qp-pill__verb">Less</span>
+              <span class="qp-pill__line">${formatLine(p.line)}</span>
+            </a>
           </div>
         `).join("")}
       </div>
@@ -391,8 +406,8 @@ function renderMarkets() {
     <section class="poly-section">
       <header class="splash-picks__header">
         <div>
-          <div class="splash-picks__eyebrow">Game markets</div>
-          <h3 class="splash-picks__title">Lines &amp; props <span class="splash-picks__count">${pairs.length} markets</span></h3>
+          <div class="splash-picks__eyebrow">Polymarket</div>
+          <h3 class="splash-picks__title">Game Markets <span class="splash-picks__count">${pairs.length} markets</span></h3>
         </div>
         ${eventUrl ? `<a class="splash-picks__cta splash-picks__cta--ghost" href="${escape(eventUrl)}" target="_blank" rel="noopener">Open event on Polymarket ↗</a>` : ""}
       </header>
