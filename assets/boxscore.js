@@ -1,9 +1,10 @@
 // Box Score tab: full per-player stat tables for both teams.
 
-import { escape } from "./script.js?v2026050101";
-import { TEAM_LOGO } from "./espn.js?v2026050101";
+import { escape } from "./script.js?v2026050102";
+import { TEAM_LOGO } from "./espn.js?v2026050102";
 
 let rootEl = null;
+let league = "nba";
 
 const STATS = [
   { key: "minutes", label: "MIN" },
@@ -24,7 +25,9 @@ const STATS = [
 
 export function mountBoxscore(el, opts) {
   rootEl = el;
-  rootEl.innerHTML = `<p class="muted">Box score will populate once the game tips off.</p>`;
+  league = opts?.league || "nba";
+  const start = league === "mlb" ? "the first pitch" : league === "nhl" ? "the puck drop" : "tip-off";
+  rootEl.innerHTML = `<p class="muted">Box score will populate once ${start}.</p>`;
 }
 
 export function updateBoxscore(summary) {
@@ -49,7 +52,7 @@ function renderTeam(team) {
   return `
     <section class="bs-team">
       <header class="bs-team__header">
-        <img src="${TEAM_LOGO(abbr)}" alt="${escape(abbr)}" />
+        <img src="${TEAM_LOGO(abbr, league)}" alt="${escape(abbr)}" />
         <span>${escape(name)}</span>
       </header>
       <table class="bs-table">

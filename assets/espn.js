@@ -2,12 +2,12 @@
 // CORS-enabled, no auth. Polls scoreboard + per-game summary endpoints.
 
 // League configuration — sport path + league slug for ESPN URLs.
+// `accent` is the league brand color used for ticker section dividers.
 export const LEAGUES = {
-  nba:  { sport: "basketball", league: "nba",  label: "NBA",  emoji: "🏀", logoLeague: "nba"  },
-  wnba: { sport: "basketball", league: "wnba", label: "WNBA", emoji: "🏀", logoLeague: "wnba" },
-  mlb:  { sport: "baseball",   league: "mlb",  label: "MLB",  emoji: "⚾", logoLeague: "mlb"  },
-  nhl:  { sport: "hockey",     league: "nhl",  label: "NHL",  emoji: "🏒", logoLeague: "nhl"  },
-  pga:  { sport: "golf",       league: "pga",  label: "PGA",  emoji: "⛳", logoLeague: null   },
+  nba:  { sport: "basketball", league: "nba",  label: "NBA",  emoji: "🏀", logoLeague: "nba",  accent: "#c9082a" },
+  mlb:  { sport: "baseball",   league: "mlb",  label: "MLB",  emoji: "⚾", logoLeague: "mlb",  accent: "#1d4ed8" },
+  nhl:  { sport: "hockey",     league: "nhl",  label: "NHL",  emoji: "🏒", logoLeague: "nhl",  accent: "#000000" },
+  pga:  { sport: "golf",       league: "pga",  label: "PGA",  emoji: "⛳", logoLeague: null,   accent: "#15803d" },
 };
 
 const SCOREBOARD_URL = (lg) => `https://site.api.espn.com/apis/site/v2/sports/${LEAGUES[lg].sport}/${LEAGUES[lg].league}/scoreboard`;
@@ -24,8 +24,9 @@ const TEAM_LOGO = (abbr, league = "nba") => {
 
 export const TONIGHT_EVENT_IDS = ["401869417", "401869381", "401869409"];
 
-export async function fetchScoreboard(league = "nba") {
-  const r = await fetch(SCOREBOARD_URL(league));
+export async function fetchScoreboard(league = "nba", dateYYYYMMDD = null) {
+  const url = dateYYYYMMDD ? `${SCOREBOARD_URL(league)}?dates=${dateYYYYMMDD}` : SCOREBOARD_URL(league);
+  const r = await fetch(url);
   if (!r.ok) throw new Error(`scoreboard ${league} ${r.status}`);
   return await r.json();
 }
@@ -37,8 +38,8 @@ export async function fetchSummary(eventId, league = "nba") {
 }
 
 // Fetch scoreboards across multiple leagues in parallel.
-export async function fetchMultiSportScoreboard(leagues = ["nba", "mlb", "nhl", "wnba"]) {
-  const results = await Promise.allSettled(leagues.map(lg => fetchScoreboard(lg).then(d => ({ league: lg, data: d }))));
+export async function fetchMultiSportScoreboard(leagues = ["nba", "mlb", "nhl"], dateYYYYMMDD = null) {
+  const results = await Promise.allSettled(leagues.map(lg => fetchScoreboard(lg, dateYYYYMMDD).then(d => ({ league: lg, data: d }))));
   return results.filter(r => r.status === "fulfilled").map(r => r.value);
 }
 

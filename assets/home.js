@@ -1,7 +1,7 @@
 // Home page controller: nav + ticker + bracket + tonight's preview cards.
 
-import { renderNav, mountTicker, escape } from "./script.js?v2026050101";
-import { fetchScoreboard, normalizeEvent, pollScoreboard, TONIGHT_EVENT_IDS } from "./espn.js?v2026050101";
+import { renderNav, mountTicker, escape } from "./script.js?v2026050102";
+import { fetchScoreboard, normalizeEvent, pollScoreboard, TONIGHT_EVENT_IDS } from "./espn.js?v2026050102";
 
 const STORYLINES = {
   "401869417": "Magic and Pistons square off in a Game 6 elimination — ORL trying to close out the series at home.",

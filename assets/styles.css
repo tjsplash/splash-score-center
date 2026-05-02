@@ -1,29 +1,32 @@
 /* ===== Splash Score Center — global styles ===== */
 
 :root {
-  --bg-dark: #0e0e14;
-  --bg-dark-2: #16161f;
-  --bg-page: #eef1f5;
+  /* Brand colors from Splash Sports brand kit */
+  --bg-dark: #101113;       /* Off Black */
+  --bg-dark-2: #1a1b1d;
+  --bg-page: #f1f3f5;
   --bg-card: #ffffff;
-  --teal: #3ddbd3;
-  --teal-deep: #00a89f;
-  --teal-soft: #d2f5f2;
+  --teal: #4BEBE2;          /* Blue 2 — Primary/Base */
+  --teal-deep: #1BC4CF;     /* Blue 3 */
+  --teal-soft: #A5F5F1;     /* Blue 1 */
+  --teal-soft-50: rgba(165, 245, 241, 0.35);
   --green: #22c55e;
   --red: #ef4444;
   --amber: #f59e0b;
   --text-light: #ffffff;
-  --text-mute-light: #9ca3af;
-  --text-dark: #111827;
+  --text-mute-light: #a1a4a8;
+  --text-dark: #101113;
   --text-mute: #6b7280;
   --text-mute-2: #4b5563;
   --border: #e5e7eb;
-  --border-dark: #1f1f2a;
+  --border-dark: #2a2b2f;
   --shadow-sm: 0 1px 2px rgba(0,0,0,0.04);
   --shadow: 0 1px 3px rgba(0,0,0,0.08), 0 1px 2px rgba(0,0,0,0.04);
   --shadow-md: 0 4px 6px -1px rgba(0,0,0,0.1), 0 2px 4px -2px rgba(0,0,0,0.05);
   --radius: 8px;
   --radius-lg: 12px;
-  --font: -apple-system, BlinkMacSystemFont, "Inter", "Segoe UI", Roboto, sans-serif;
+  --font: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  --font-display: "Hubot Sans", "Inter", -apple-system, BlinkMacSystemFont, sans-serif;
 }
 
 * {
@@ -95,17 +98,36 @@ img {
 .nav__logo {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 10px;
   font-weight: 700;
-  font-size: 18px;
+  font-size: 17px;
   letter-spacing: -0.01em;
+  text-decoration: none;
 }
 
 .nav__logo-mark {
-  width: 28px;
-  height: 28px;
+  width: 36px;
+  height: 22px;
   display: block;
   color: var(--teal);
+  flex-shrink: 0;
+}
+
+.nav__logo-text {
+  display: inline-flex;
+  flex-direction: column;
+  line-height: 1;
+  font-family: var(--font-display);
+  letter-spacing: 0.02em;
+}
+
+.nav__logo-tag {
+  font-size: 10px;
+  font-weight: 600;
+  color: var(--teal);
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  margin-top: 3px;
 }
 
 .nav__links {
@@ -211,6 +233,40 @@ img {
   background: rgba(255,255,255,0.08);
   padding: 1px 5px;
   border-radius: 3px;
+}
+
+.ticker-card__broadcast {
+  font-size: 10px;
+  color: var(--text-mute-light);
+}
+
+/* ESPN-style sport dividers between groups in the ticker */
+.ticker__divider {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 14px;
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.1em;
+  color: var(--text-light);
+  background: var(--bg-dark);
+  border-left: 2px solid var(--sport-accent, var(--teal));
+  border-right: 2px solid var(--sport-accent, var(--teal));
+  margin: 0 4px;
+  position: relative;
+  text-transform: uppercase;
+}
+
+.ticker__divider::before {
+  content: "";
+  position: absolute;
+  left: -2px;
+  top: 0;
+  bottom: 0;
+  width: 4px;
+  background: var(--sport-accent, var(--teal));
 }
 
 .ticker__inner {
@@ -593,6 +649,69 @@ img {
 }
 
 /* ===== Scoreboard page — sport tabs + PGA leaderboard ===== */
+
+.sb-date-scroller {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  padding: 4px 6px;
+  margin: 4px 0 8px;
+  position: relative;
+}
+
+.sb-date-arrow {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background: transparent;
+  color: var(--text-mute-2);
+  font-size: 18px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.sb-date-arrow:hover {
+  background: var(--bg-page);
+  color: var(--text-dark);
+}
+
+.sb-date-today {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1px;
+  padding: 4px 14px;
+  background: transparent;
+  cursor: pointer;
+  min-width: 200px;
+}
+
+.sb-date-today:hover { background: var(--bg-page); border-radius: 999px; }
+
+.sb-date-today__rel {
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.12em;
+  color: var(--teal-deep);
+}
+
+.sb-date-today__abs {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-dark);
+}
+
+.sb-date-input {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  opacity: 0;
+  pointer-events: none;
+}
 
 .sb-league-bar {
   display: flex;

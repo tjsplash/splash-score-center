@@ -2,11 +2,11 @@
 // list (NBA, MLB, NHL, WNBA, PGA leaderboard). Live data from ESPN's public
 // scoreboard endpoints.
 
-import { renderNav, mountTicker, escape } from "./script.js?v2026050101";
+import { renderNav, mountTicker, escape } from "./script.js?v2026050102";
 import {
   fetchScoreboard, fetchSummary, normalizeEvent,
   pollScoreboard, LEAGUES, TEAM_LOGO,
-} from "./espn.js?v2026050101";
+} from "./espn.js?v2026050102";
 
 renderNav("scoreboard");
 mountTicker(document.querySelector(".ticker"));
@@ -15,10 +15,15 @@ const list = document.getElementById("sb-list");
 const dateLabel = document.getElementById("sb-date");
 const leagueBar = document.getElementById("sb-league-bar");
 
-const ORDER = ["nba", "mlb", "nhl", "wnba", "pga"];
+const ORDER = ["nba", "mlb", "nhl", "pga"];
 
-let activeLeague = (new URLSearchParams(location.search).get("league") || "nba").toLowerCase();
+const params = new URLSearchParams(location.search);
+let activeLeague = (params.get("league") || "nba").toLowerCase();
 if (!ORDER.includes(activeLeague)) activeLeague = "nba";
+
+// Date is the day shown on the scoreboard. Stored as YYYYMMDD for ESPN, but
+// rendered relative to today.
+let activeDate = parseDateParam(params.get("date")) || todayDate();
 
 leagueBar.innerHTML = ORDER.map(lg => `
   <button class="sb-tab ${lg === activeLeague ? "is-active" : ""}" data-league="${lg}" type="button">
@@ -33,14 +38,97 @@ leagueBar.addEventListener("click", (e) => {
   if (lg === activeLeague) return;
   activeLeague = lg;
   leagueBar.querySelectorAll(".sb-tab").forEach(b => b.classList.toggle("is-active", b === btn));
-  history.replaceState(null, "", `?league=${lg}`);
+  syncUrl();
   list.innerHTML = `<p class="muted">Loading ${LEAGUES[lg].label}…</p>`;
   startPolling();
 });
 
-dateLabel.textContent = new Date().toLocaleDateString([], {
-  weekday: "long", month: "long", day: "numeric", year: "numeric"
+// Render the date scroller above the list.
+const dateScroller = document.createElement("div");
+dateScroller.className = "sb-date-scroller";
+dateScroller.innerHTML = `
+  <button class="sb-date-arrow" data-step="-1" aria-label="Previous day">&#x2039;</button>
+  <button class="sb-date-today" id="sb-date-today" type="button">
+    <span class="sb-date-today__rel" id="sb-date-rel"></span>
+    <span class="sb-date-today__abs" id="sb-date-abs"></span>
+  </button>
+  <button class="sb-date-arrow" data-step="1" aria-label="Next day">&#x203a;</button>
+  <input type="date" class="sb-date-input" id="sb-date-input" />
+`;
+dateLabel.textContent = "";
+dateLabel.appendChild(dateScroller);
+const dateRel = dateScroller.querySelector("#sb-date-rel");
+const dateAbs = dateScroller.querySelector("#sb-date-abs");
+const dateInput = dateScroller.querySelector("#sb-date-input");
+
+function renderDate() {
+  const d = ymdToDate(activeDate);
+  const today = todayDate();
+  const diff = Math.round((d.getTime() - ymdToDate(today).getTime()) / (1000 * 60 * 60 * 24));
+  dateRel.textContent = diff === 0 ? "TODAY" : diff === -1 ? "YESTERDAY" : diff === 1 ? "TOMORROW" : d.toLocaleDateString([], { weekday: "short" }).toUpperCase();
+  dateAbs.textContent = d.toLocaleDateString([], { month: "long", day: "numeric", year: "numeric" });
+  dateInput.value = `${activeDate.slice(0,4)}-${activeDate.slice(4,6)}-${activeDate.slice(6,8)}`;
+}
+dateScroller.addEventListener("click", (e) => {
+  const arrow = e.target.closest("[data-step]");
+  if (arrow) {
+    activeDate = shiftDate(activeDate, parseInt(arrow.dataset.step, 10));
+    renderDate();
+    syncUrl();
+    list.innerHTML = `<p class="muted">Loading…</p>`;
+    startPolling();
+    return;
+  }
+  if (e.target.closest("#sb-date-today")) {
+    dateInput.showPicker?.();
+  }
 });
+dateInput.addEventListener("change", () => {
+  const v = dateInput.value;
+  if (v) {
+    activeDate = v.replaceAll("-", "");
+    renderDate();
+    syncUrl();
+    list.innerHTML = `<p class="muted">Loading…</p>`;
+    startPolling();
+  }
+});
+
+function syncUrl() {
+  const today = todayDate();
+  const qs = new URLSearchParams();
+  if (activeLeague !== "nba") qs.set("league", activeLeague);
+  if (activeDate !== today) qs.set("date", activeDate);
+  const next = qs.toString() ? "?" + qs.toString() : location.pathname;
+  history.replaceState(null, "", next);
+}
+
+renderDate();
+
+function todayDate() {
+  const d = new Date();
+  return `${d.getFullYear()}${String(d.getMonth()+1).padStart(2,"0")}${String(d.getDate()).padStart(2,"0")}`;
+}
+
+function shiftDate(ymd, days) {
+  const d = ymdToDate(ymd);
+  d.setDate(d.getDate() + days);
+  return `${d.getFullYear()}${String(d.getMonth()+1).padStart(2,"0")}${String(d.getDate()).padStart(2,"0")}`;
+}
+
+function ymdToDate(ymd) {
+  const y = parseInt(ymd.slice(0,4), 10);
+  const m = parseInt(ymd.slice(4,6), 10);
+  const dd = parseInt(ymd.slice(6,8), 10);
+  return new Date(y, m - 1, dd);
+}
+
+function parseDateParam(raw) {
+  if (!raw) return null;
+  const cleaned = raw.replace(/\D/g, "");
+  if (cleaned.length !== 8) return null;
+  return cleaned;
+}
 
 let stopPoll = null;
 const summaryCache = new Map();
@@ -49,16 +137,16 @@ function startPolling() {
   if (stopPoll) stopPoll();
   if (activeLeague === "pga") {
     refreshPga();
-    stopPoll = pollScoreboard(refreshPga, 30000, "pga");
+    if (activeDate === todayDate()) stopPoll = pollScoreboard(refreshPga, 30000, "pga");
   } else {
     refreshTeamSport();
-    stopPoll = pollScoreboard(() => refreshTeamSport(), 15000, activeLeague);
+    if (activeDate === todayDate()) stopPoll = pollScoreboard(() => refreshTeamSport(), 15000, activeLeague);
   }
 }
 
 async function refreshTeamSport() {
   try {
-    const data = await fetchScoreboard(activeLeague);
+    const data = await fetchScoreboard(activeLeague, activeDate);
     const events = (data.events || []).map(ev => normalizeEvent(ev, activeLeague));
     if (!events.length) {
       list.innerHTML = `<p class="muted">No ${LEAGUES[activeLeague].label} games scheduled today.</p>`;
@@ -193,7 +281,7 @@ function periodHead(league) {
 // PGA leaderboard rendering — different shape from team sports.
 async function refreshPga() {
   try {
-    const data = await fetchScoreboard("pga");
+    const data = await fetchScoreboard("pga", activeDate);
     const events = data.events || [];
     if (!events.length) {
       list.innerHTML = `<p class="muted">No PGA tournament today.</p>`;

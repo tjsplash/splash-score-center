@@ -1,14 +1,14 @@
 // Game Center controller: header + tabs + live polling.
 // Pulls a real ESPN summary on a 10s loop and fans data out to sub-modules.
 
-import { renderNav, mountTicker, escape } from "./script.js?v2026050101";
-import { fetchSummary, pollSummary, normalizeEvent, TEAM_LOGO, LEAGUES } from "./espn.js?v2026050101";
-import { mountPbp, updatePbp } from "./pbp.js?v2026050101";
-import { mountBoxscore, updateBoxscore } from "./boxscore.js?v2026050101";
-import { mountMarkets, updateMarketsFromPlay, refreshSparklines } from "./markets.js?v2026050101";
-import { mountWinprob, updateWinprob } from "./winprob.js?v2026050101";
-import { mountChat } from "./chat.js?v2026050101";
-import { startFakeActivity } from "./fakeusers.js?v2026050101";
+import { renderNav, mountTicker, escape } from "./script.js?v2026050102";
+import { fetchSummary, pollSummary, normalizeEvent, TEAM_LOGO, LEAGUES } from "./espn.js?v2026050102";
+import { mountPbp, updatePbp } from "./pbp.js?v2026050102";
+import { mountBoxscore, updateBoxscore } from "./boxscore.js?v2026050102";
+import { mountMarkets, updateMarketsFromPlay, refreshSparklines } from "./markets.js?v2026050102";
+import { mountWinprob, updateWinprob } from "./winprob.js?v2026050102";
+import { mountChat } from "./chat.js?v2026050102";
+import { startFakeActivity } from "./fakeusers.js?v2026050102";
 
 renderNav("game");
 mountTicker(document.querySelector(".ticker"));
@@ -18,9 +18,21 @@ const gameId = params.get("id") || "401869409";
 const league = (params.get("league") || "nba").toLowerCase();
 const isBasketball = league === "nba" || league === "wnba";
 
-mountPbp(document.getElementById("panel-pbp"), { gameId });
-mountBoxscore(document.getElementById("panel-boxscore"), { gameId });
-mountMarkets(document.getElementById("panel-markets"), { gameId });
+mountPbp(document.getElementById("panel-pbp"), { gameId, league });
+mountBoxscore(document.getElementById("panel-boxscore"), { gameId, league });
+// Markets + Win Prob are NBA-specific (Polymarket coverage). Hide for other leagues.
+const isNbaGame = league === "nba";
+if (isNbaGame) {
+  mountMarkets(document.getElementById("panel-markets"), { gameId });
+} else {
+  // Hide unsupported tabs and panels for non-NBA games.
+  ["markets", "winprob"].forEach(t => {
+    const tab = document.querySelector(`.gc__tab[data-tab="${t}"]`);
+    const panel = document.querySelector(`.gc__panel[data-panel="${t}"]`);
+    if (tab) tab.style.display = "none";
+    if (panel) panel.style.display = "none";
+  });
+}
 
 // Mount the chat in whichever container is appropriate for the viewport.
 // Mobile gets a slide-up sheet, desktop gets the inline right rail.
@@ -175,34 +187,56 @@ const TEAM_ALT = {
 };
 
 function pickDistinctChartColors(homeTeam, awayTeam) {
-  const homeC = (homeTeam.color || "0e0e14").toLowerCase();
-  const awayC = (awayTeam.color || "3ddbd3").toLowerCase();
-
-  if (!colorsTooClose(homeC, awayC)) {
-    return { home: homeC, away: awayC };
-  }
-  // Pick whichever team has a usable alt color and swap.
+  const homeC = (homeTeam.color || "1d42ba").toLowerCase();
+  const awayC = (awayTeam.color || "ef4444").toLowerCase();
   const homeAlt = TEAM_ALT[homeTeam.abbreviation];
   const awayAlt = TEAM_ALT[awayTeam.abbreviation];
 
-  // Prefer to swap the *home* team's color since visiting teams are usually
-  // identified strongly by their primary color on a road graphic.
-  if (awayAlt && !colorsTooClose(homeC, awayAlt)) {
-    return { home: homeC, away: awayAlt };
+  // Try every combination of (home/homeAlt) × (away/awayAlt) and pick the
+  // first pair that meets a stronger contrast threshold. This guarantees
+  // distinct lines even when both teams share a hue family.
+  const homeOptions = [homeC, homeAlt].filter(Boolean);
+  const awayOptions = [awayC, awayAlt].filter(Boolean);
+
+  let best = null;
+  let bestDist = -1;
+  for (const h of homeOptions) {
+    for (const a of awayOptions) {
+      const d = colorDistance(h, a);
+      if (d > bestDist) {
+        bestDist = d;
+        best = { home: h, away: a };
+      }
+    }
   }
-  if (homeAlt && !colorsTooClose(homeAlt, awayC)) {
-    return { home: homeAlt, away: awayC };
-  }
-  // Last-resort: force a high-contrast pair.
-  return { home: "1d42ba", away: "ef4444" };
+  if (best && bestDist >= 120) return best;
+
+  // No team-color pair was distinct enough — force a guaranteed-contrast pair.
+  // Keep one side roughly in the team's color family if possible.
+  return {
+    home: homeOptions.find(c => isCool(c)) || "1d42ba", // blue-ish
+    away: awayOptions.find(c => isWarm(c)) || "ef4444", // red-ish
+  };
+}
+
+function colorDistance(a, b) {
+  const [r1, g1, b1] = hexToRgb(a);
+  const [r2, g2, b2] = hexToRgb(b);
+  const dr = r1 - r2, dg = g1 - g2, db = b1 - b2;
+  return Math.sqrt(dr * dr + dg * dg + db * db);
 }
 
 function colorsTooClose(a, b) {
-  const [r1, g1, b1] = hexToRgb(a);
-  const [r2, g2, b2] = hexToRgb(b);
-  // Euclidean distance in RGB cube; <90 is "too similar" for our purposes.
-  const dr = r1 - r2, dg = g1 - g2, db = b1 - b2;
-  return Math.sqrt(dr * dr + dg * dg + db * db) < 90;
+  return colorDistance(a, b) < 120;
+}
+
+function isCool(hex) {
+  const [r, g, b] = hexToRgb(hex);
+  return b > r;
+}
+function isWarm(hex) {
+  const [r, g, b] = hexToRgb(hex);
+  return r > b;
 }
 
 function hexToRgb(h) {
@@ -245,7 +279,7 @@ function refreshHeader(summary) {
         <div class="gc__team-name">${escape(away.team.displayName)}</div>
         <div class="gc__team-sub">${escape(awayRecord)}${broadcast ? ` · ${escape(broadcast)}` : ""}</div>
       </div>
-      <img class="gc__team-logo" src="${away.team.logo || TEAM_LOGO(away.team.abbreviation)}" alt="${escape(away.team.abbreviation)}" />
+      <img class="gc__team-logo" src="${away.team.logo || TEAM_LOGO(away.team.abbreviation, league)}" alt="${escape(away.team.abbreviation)}" />
     </div>
     <div class="gc__center">
       <div class="gc__score">
@@ -257,7 +291,7 @@ function refreshHeader(summary) {
       <div class="gc__sparkline"><canvas id="winprob-spark"></canvas></div>
     </div>
     <div class="gc__team">
-      <img class="gc__team-logo" src="${home.team.logo || TEAM_LOGO(home.team.abbreviation)}" alt="${escape(home.team.abbreviation)}" />
+      <img class="gc__team-logo" src="${home.team.logo || TEAM_LOGO(home.team.abbreviation, league)}" alt="${escape(home.team.abbreviation)}" />
       <div>
         <div class="gc__team-name">${escape(home.team.displayName)}</div>
         <div class="gc__team-sub">${escape(homeRecord)}</div>

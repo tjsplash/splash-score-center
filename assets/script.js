@@ -1,7 +1,7 @@
 // Shared bootstrap: nav, sticky ticker, identity surface in header.
 
-import { fetchScoreboard, normalizeEvent, pollScoreboard, pollMultiSportScoreboard, TONIGHT_EVENT_IDS, LEAGUES } from "./espn.js?v2026050101";
-import { getIdentity } from "./identity.js?v2026050101";
+import { fetchScoreboard, normalizeEvent, pollScoreboard, pollMultiSportScoreboard, TONIGHT_EVENT_IDS, LEAGUES } from "./espn.js?v2026050102";
+import { getIdentity } from "./identity.js?v2026050102";
 
 // Single shared event bus.
 export const bus = new EventTarget();
@@ -35,7 +35,8 @@ function renderIdentityBadge() {
 
 // ---- Multi-sport score ticker ----
 
-const TICKER_LEAGUES = ["nba", "mlb", "nhl", "wnba"];
+const TICKER_LEAGUES = ["nba", "mlb", "nhl"];
+const LEAGUE_ORDER = ["nba", "nhl", "mlb"]; // ESPN-style ordering: live sports first
 
 export async function mountTicker(rootEl, opts = {}) {
   if (!rootEl) return () => {};
@@ -76,24 +77,37 @@ export async function mountTicker(rootEl, opts = {}) {
   let lastResults = [];
 
   function rerender() {
-    const events = lastResults
-      .filter(r => activeLeagues.has(r.league))
-      .flatMap(r => (r.data.events || []).map(ev => normalizeEvent(ev, r.league)))
-      .filter(e => !e.isGolf);
+    // Group events by league so we can render ESPN-style sport dividers.
+    const byLeague = {};
+    for (const r of lastResults) {
+      if (!activeLeagues.has(r.league)) continue;
+      const evs = (r.data.events || [])
+        .map(ev => normalizeEvent(ev, r.league))
+        .filter(e => !e.isGolf);
+      // Within a sport, sort: live > pre > post; pin NBA-tonight first.
+      evs.sort((a, b) => {
+        const aT = TONIGHT_EVENT_IDS.indexOf(a.id);
+        const bT = TONIGHT_EVENT_IDS.indexOf(b.id);
+        if (aT !== -1 && bT === -1) return -1;
+        if (bT !== -1 && aT === -1) return 1;
+        if (aT !== -1 && bT !== -1) return aT - bT;
+        const ord = { in: 0, pre: 1, post: 2 };
+        return (ord[a.state] ?? 3) - (ord[b.state] ?? 3);
+      });
+      byLeague[r.league] = evs;
+    }
 
-    // Sort: live first, then upcoming today, then final at the end. Pin NBA tonight first.
-    events.sort((a, b) => {
-      const aT = TONIGHT_EVENT_IDS.indexOf(a.id);
-      const bT = TONIGHT_EVENT_IDS.indexOf(b.id);
-      if (aT !== -1 && bT === -1) return -1;
-      if (bT !== -1 && aT === -1) return 1;
-      if (aT !== -1 && bT !== -1) return aT - bT;
-      // live > pre > post
-      const ord = { in: 0, pre: 1, post: 2 };
-      return (ord[a.state] ?? 3) - (ord[b.state] ?? 3);
-    });
-
-    inner.innerHTML = events.map(tickerCardHtml).join("") || `<span class="muted" style="padding:8px 12px;">No games today.</span>`;
+    const out = [];
+    for (const lg of LEAGUE_ORDER) {
+      if (!byLeague[lg] || !byLeague[lg].length) continue;
+      out.push(`<div class="ticker__divider" style="--sport-accent:${LEAGUES[lg].accent}">${LEAGUES[lg].label}</div>`);
+      out.push(byLeague[lg].map(tickerCardHtml).join(""));
+    }
+    if (!out.length) {
+      inner.innerHTML = `<span class="muted" style="padding:8px 12px;">No games right now.</span>`;
+    } else {
+      inner.innerHTML = out.join("");
+    }
   }
 
   const stop = pollMultiSportScoreboard((results) => {
@@ -124,7 +138,7 @@ function tickerCardHtml(ev) {
     <a href="game.html?id=${ev.id}&league=${ev.league}" class="${cls.join(" ")}" aria-label="${ev.shortName}">
       <div class="ticker-card__status">
         <span class="ticker-card__status-state">${live ? '<span class="live-dot"></span>' : ""}${status}</span>
-        <span class="ticker-card__league-tag">${LEAGUES[ev.league]?.label || ev.league.toUpperCase()}</span>
+        ${ev.broadcast ? `<span class="ticker-card__broadcast">${ev.broadcast}</span>` : ""}
       </div>
       <img class="ticker-card__logo" src="${ev.away.logo}" alt="${ev.away.abbr}" />
       <span><span class="ticker-card__abbr">${ev.away.abbr}</span><span class="ticker-card__sub">${ev.away.record}</span></span>

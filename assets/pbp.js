@@ -1,15 +1,16 @@
 // Play-by-Play feed: real ESPN plays + inline market move cards.
 // Each play is a card with reactions, comments, and team context.
 
-import { escape, spawnFloatingEmoji, teamHex } from "./script.js?v2026050101";
-import { TEAM_LOGO } from "./espn.js?v2026050101";
-import { get, set, commentsKey, reactionsKey } from "./storage.js?v2026050101";
-import { requireIdentity, getIdentity } from "./identity.js?v2026050101";
+import { escape, spawnFloatingEmoji, teamHex } from "./script.js?v2026050102";
+import { TEAM_LOGO } from "./espn.js?v2026050102";
+import { get, set, commentsKey, reactionsKey } from "./storage.js?v2026050102";
+import { requireIdentity, getIdentity } from "./identity.js?v2026050102";
 
 const PRESET_EMOJIS = ["🔥", "😱", "🤯", "💀", "🏀"];
 
 let rootEl = null;
 let gameId = null;
+let league = "nba";
 let knownPlayIds = new Set();
 let marketEvents = []; // injected market-move cards (id, after-play index, payload)
 let lastSummary = null;
@@ -17,7 +18,9 @@ let lastSummary = null;
 export function mountPbp(el, opts) {
   rootEl = el;
   gameId = opts.gameId;
-  rootEl.innerHTML = `<div class="pbp__empty">Waiting for tip-off… plays will land here as they happen.</div>`;
+  league = opts.league || "nba";
+  const startLabel = league === "mlb" ? "first pitch" : league === "nhl" ? "puck drop" : "tip-off";
+  rootEl.innerHTML = `<div class="pbp__empty">Waiting for ${startLabel}… plays will land here as they happen.</div>`;
 }
 
 // Called whenever a fresh ESPN summary lands.
@@ -95,15 +98,17 @@ function playCardHtml(p, summary) {
   const period = p.period?.number || "";
   const typeIcon = playIcon(p);
 
+  const periodPrefix = league === "mlb" ? "" : league === "nhl" ? "P" : "Q";
+  const periodSuffix = league === "mlb" ? ordinal(period) : "";
   return `
     <article class="play-card ${score ? "is-scoring" : ""} ${major ? "is-major-scoring" : ""}" data-play-id="${escape(p.id)}">
       <div class="play-card__time">
-        <div class="play-card__time-q">Q${period}</div>
+        <div class="play-card__time-q">${periodPrefix}${period}${periodSuffix}</div>
         <div>${escape(time)}</div>
       </div>
       <div class="play-card__body">
         <div class="play-card__top">
-          ${team ? `<img class="play-card__team-icon" src="${TEAM_LOGO(team.abbr)}" alt="${escape(team.abbr)}" />` : `<span class="play-card__team-icon">${typeIcon}</span>`}
+          ${team ? `<img class="play-card__team-icon" src="${TEAM_LOGO(team.abbr, league)}" alt="${escape(team.abbr)}" />` : `<span class="play-card__team-icon">${typeIcon}</span>`}
           <span class="play-card__text">${escape(p.text || "")}</span>
           ${(p.awayScore != null && p.homeScore != null) ? `<span class="play-card__score-pill">${p.awayScore} – ${p.homeScore}</span>` : ""}
         </div>
@@ -265,7 +270,27 @@ function findTeamByEspnId(summary, teamId) {
 }
 
 function playIcon(p) {
-  const t = (p.type?.text || "").toLowerCase();
+  const t = (p.type?.text || p.text || "").toLowerCase();
+  if (league === "mlb") {
+    if (t.includes("home run")) return "💥";
+    if (t.includes("strikeout")) return "🥶";
+    if (t.includes("walk")) return "🚶";
+    if (t.includes("triple")) return "3️⃣";
+    if (t.includes("double")) return "2️⃣";
+    if (t.includes("single")) return "1️⃣";
+    if (t.includes("out")) return "⚾";
+    return "⚾";
+  }
+  if (league === "nhl") {
+    if (t.includes("goal")) return "🚨";
+    if (t.includes("save")) return "🧤";
+    if (t.includes("shot")) return "🎯";
+    if (t.includes("penalty")) return "⚖️";
+    if (t.includes("hit")) return "💥";
+    if (t.includes("faceoff")) return "🏒";
+    return "🏒";
+  }
+  // Basketball default
   if (t.includes("dunk")) return "💥";
   if (t.includes("three")) return "🎯";
   if (t.includes("steal")) return "🥷";
@@ -274,6 +299,13 @@ function playIcon(p) {
   if (t.includes("foul")) return "⚖️";
   if (t.includes("rebound")) return "🪣";
   return "🏀";
+}
+
+function ordinal(n) {
+  const v = parseInt(n, 10);
+  const s = ["th", "st", "nd", "rd"];
+  const tens = v % 100;
+  return s[(tens - 20) % 10] || s[tens] || s[0];
 }
 
 function formatRelTime(ts) {

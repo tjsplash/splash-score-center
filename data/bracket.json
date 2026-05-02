@@ -64,11 +64,9 @@
           "teams": ["LAL", "HOU"],
           "names": ["Los Angeles Lakers", "Houston Rockets"],
           "records": ["53-29", "52-30"],
-          "wins": [3, 2],
+          "wins": [4, 2],
           "leader": "LAL",
-          "series": "LAL leads 3-2",
-          "tonightEventId": "401869409",
-          "scheduleNote": "Game 6 · live now"
+          "series": "LAL wins 4-2"
         },
         {
           "seedHigh": 3, "seedLow": 6,
@@ -114,16 +112,16 @@
       ],
       "west": [
         {
-          "seedHigh": 1,
-          "teams": ["OKC", "4/5 winner"],
-          "names": ["Oklahoma City Thunder", "LAL / HOU winner"],
-          "records": ["61-21", "TBD"],
+          "seedHigh": 1, "seedLow": 4,
+          "teams": ["OKC", "LAL"],
+          "names": ["Oklahoma City Thunder", "Los Angeles Lakers"],
+          "records": ["61-21", "53-29"],
           "wins": [0, 0],
           "leader": null,
-          "series": "Thunder awaiting opponent"
+          "series": "Game 1 · May 4 · OKC -7.5"
         },
         {
-          "seedHigh": 2,
+          "seedHigh": 2, "seedLow": 3,
           "teams": ["SAS", "MIN"],
           "names": ["San Antonio Spurs", "Minnesota Timberwolves"],
           "records": ["59-23", "52-30"],
