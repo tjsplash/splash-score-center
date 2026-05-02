@@ -4,10 +4,10 @@
 // League configuration — sport path + league slug for ESPN URLs.
 // `accent` is the league brand color used for ticker section dividers.
 export const LEAGUES = {
-  nba:  { sport: "basketball", league: "nba",  label: "NBA",  emoji: "🏀", logoLeague: "nba",  accent: "#c9082a" },
-  mlb:  { sport: "baseball",   league: "mlb",  label: "MLB",  emoji: "⚾", logoLeague: "mlb",  accent: "#1d4ed8" },
-  nhl:  { sport: "hockey",     league: "nhl",  label: "NHL",  emoji: "🏒", logoLeague: "nhl",  accent: "#000000" },
-  pga:  { sport: "golf",       league: "pga",  label: "PGA",  emoji: "⛳", logoLeague: null,   accent: "#15803d" },
+  nba:  { sport: "basketball", league: "nba",  label: "NBA",  emoji: "🏀", logoLeague: "nba",  accent: "#4BEBE2" },
+  mlb:  { sport: "baseball",   league: "mlb",  label: "MLB",  emoji: "⚾", logoLeague: "mlb",  accent: "#4BEBE2" },
+  nhl:  { sport: "hockey",     league: "nhl",  label: "NHL",  emoji: "🏒", logoLeague: "nhl",  accent: "#4BEBE2" },
+  pga:  { sport: "golf",       league: "pga",  label: "PGA",  emoji: "⛳", logoLeague: null,   accent: "#4BEBE2" },
 };
 
 const SCOREBOARD_URL = (lg) => `https://site.api.espn.com/apis/site/v2/sports/${LEAGUES[lg].sport}/${LEAGUES[lg].league}/scoreboard`;

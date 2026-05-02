@@ -105,29 +105,22 @@ img {
   text-decoration: none;
 }
 
-.nav__logo-mark {
-  width: 36px;
-  height: 22px;
+.nav__logo-img {
+  height: 18px;
+  width: auto;
   display: block;
-  color: var(--teal);
   flex-shrink: 0;
-}
-
-.nav__logo-text {
-  display: inline-flex;
-  flex-direction: column;
-  line-height: 1;
-  font-family: var(--font-display);
-  letter-spacing: 0.02em;
 }
 
 .nav__logo-tag {
   font-size: 10px;
-  font-weight: 600;
+  font-weight: 700;
   color: var(--teal);
   letter-spacing: 0.18em;
   text-transform: uppercase;
-  margin-top: 3px;
+  border-left: 1px solid #2a2b2f;
+  padding-left: 10px;
+  margin-left: 2px;
 }
 
 .nav__links {
