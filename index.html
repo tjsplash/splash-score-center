@@ -10,7 +10,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="assets/styles.css" />
+  <link rel="stylesheet" href="assets/styles.css?v2026050105" />
 </head>
 <body data-page="home">
   <header class="nav">
@@ -31,21 +31,35 @@
     </div>
   </header>
 
-  <div class="ticker" aria-label="Tonight's NBA games"></div>
+  <div class="ticker" aria-label="Tonight's games"></div>
 
   <main class="page">
-    <h1 class="page-title">Tonight's games <span class="section-heading__pill">Live data via ESPN</span></h1>
+    <div class="home-header">
+      <div>
+        <h1 class="page-title">Tonight's games <span class="section-heading__pill">Live · ESPN</span></h1>
+        <p class="page-subtitle" id="home-sub">Updates every 15 seconds. Recaps appear automatically when games go final.</p>
+      </div>
+      <div class="sport-filter" id="sport-filter" role="tablist" aria-label="Sport filter"></div>
+    </div>
+
     <section class="tonight" id="tonight"></section>
 
-    <section class="bracket-teaser" id="bracket-teaser">
-      <a href="bracket.html" class="bracket-teaser__link">
-        <div>
-          <div class="bracket-teaser__eyebrow">NBA Playoffs · 2025-26</div>
-          <h2 class="bracket-teaser__title">Full Playoff Bracket</h2>
-          <p class="bracket-teaser__sub">Two Game 7s set up across the East. SAS and OKC through to round two. Tap to view the full bracket.</p>
-        </div>
-        <span class="bracket-teaser__cta">View bracket →</span>
-      </a>
+    <section class="home-actions" id="home-actions" aria-label="Quick links"></section>
+
+    <section class="home-panel" id="standings-panel" hidden>
+      <div class="home-panel__header">
+        <h2 class="home-panel__title">Standings</h2>
+        <button class="home-panel__close" data-close-panel aria-label="Close standings">×</button>
+      </div>
+      <div class="home-panel__body" id="standings-body"></div>
+    </section>
+
+    <section class="home-panel" id="stats-panel" hidden>
+      <div class="home-panel__header">
+        <h2 class="home-panel__title">Player stats — season leaders</h2>
+        <button class="home-panel__close" data-close-panel aria-label="Close stats">×</button>
+      </div>
+      <div class="home-panel__body" id="stats-body"></div>
     </section>
   </main>
 
@@ -68,6 +82,6 @@
     </a>
   </nav>
 
-  <script type="module" src="assets/home.js?v2026050103"></script>
+  <script type="module" src="assets/home.js?v2026050105"></script>
 </body>
 </html>
