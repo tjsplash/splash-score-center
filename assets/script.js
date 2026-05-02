@@ -17,6 +17,34 @@ export function renderNav(activePage) {
   });
   renderIdentityBadge();
   window.addEventListener("identity:change", renderIdentityBadge);
+  // Patch Game Center / Live links to the most-likely-live event so that
+  // the nav doesn't keep linking to a series that has already ended.
+  syncGameCenterLink();
+}
+
+async function syncGameCenterLink() {
+  const candidates = [
+    document.querySelector('.nav__link[data-page="game"]'),
+    document.querySelector('.tabbar a[data-tab="game"]'),
+  ].filter(Boolean);
+  if (!candidates.length) return;
+
+  const fallbackId = TONIGHT_EVENT_IDS[0];
+  candidates.forEach(el => { if (!el.getAttribute("href")) el.setAttribute("href", `game.html?id=${fallbackId}`); });
+
+  try {
+    const data = await fetchScoreboard("nba");
+    const events = (data.events || []).map(e => normalizeEvent(e, "nba"));
+    // Prefer live; otherwise the first prepared tonight event still on the
+    // schedule; otherwise the first scheduled game; otherwise the fallback.
+    const live = events.find(e => e.isLive);
+    const tonight = events.find(e => TONIGHT_EVENT_IDS.includes(e.id));
+    const next = events.find(e => e.state === "pre");
+    const pick = live?.id || tonight?.id || next?.id || fallbackId;
+    candidates.forEach(el => el.setAttribute("href", `game.html?id=${pick}`));
+  } catch {
+    /* network errors are fine — fallback already set */
+  }
 }
 
 function renderIdentityBadge() {

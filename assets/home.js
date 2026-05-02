@@ -2,10 +2,10 @@
 // selected league, and a row of action buttons at the bottom that surface
 // bracket / standings / season leaders inline (ESPN-style).
 
-import { renderNav, mountTicker, escape } from "./script.js?v2026050104";
+import { renderNav, mountTicker, escape } from "./script.js?v2026050106";
 import {
-  fetchScoreboard, normalizeEvent, pollScoreboard, LEAGUES,
-} from "./espn.js?v2026050104";
+  fetchScoreboard, fetchSummary, normalizeEvent, pollScoreboard, LEAGUES,
+} from "./espn.js?v2026050106";
 
 const HOME_LEAGUES = ["nba", "mlb", "nhl"];
 
@@ -56,8 +56,16 @@ const statsPanel = document.getElementById("stats-panel");
 const statsBody = document.getElementById("stats-body");
 const subEl = document.getElementById("home-sub");
 
-let activeLeague = "nba";
+const STORAGE_KEY = "ssc:home:league";
+const persisted = (() => {
+  try { return sessionStorage.getItem(STORAGE_KEY); } catch { return null; }
+})();
+let activeLeague = HOME_LEAGUES.includes(persisted) ? persisted : "nba";
 let stopPoll = null;
+
+function persistLeague(lg) {
+  try { sessionStorage.setItem(STORAGE_KEY, lg); } catch {}
+}
 
 filterEl.innerHTML = HOME_LEAGUES.map(lg => {
   const cfg = LEAGUES[lg];
@@ -72,6 +80,7 @@ filterEl.addEventListener("click", (e) => {
   const lg = btn.dataset.league;
   if (lg === activeLeague) return;
   activeLeague = lg;
+  persistLeague(lg);
   filterEl.querySelectorAll(".sport-chip").forEach(b => {
     const on = b === btn;
     b.classList.toggle("is-active", on);
@@ -123,34 +132,117 @@ function renderSubtitle() {
 
 function startPolling() {
   if (stopPoll) stopPoll();
-  tonightEl.innerHTML = `<p class="muted">Loading ${LEAGUES[activeLeague].label} games…</p>`;
+  tonightEl.innerHTML = skeletonCards(3);
   refreshTonight();
   stopPoll = pollScoreboard(() => refreshTonight(), 15000, activeLeague);
 }
 
+function skeletonCards(n) {
+  const card = `
+    <article class="skel-card" aria-hidden="true">
+      <div class="skel-card__row">
+        <span class="skel skel-card__line skel-card__line--short"></span>
+        <span class="skel skel-card__line skel-card__line--short" style="margin-left:auto"></span>
+      </div>
+      <div class="skel-card__row">
+        <span class="skel skel-card__circle"></span>
+        <span class="skel skel-card__line"></span>
+        <span class="skel skel-card__circle"></span>
+      </div>
+      <div class="skel-card__row">
+        <span class="skel skel-card__line skel-card__line--mid"></span>
+      </div>
+      <div class="skel-card__row">
+        <span class="skel skel-card__line skel-card__line--short"></span>
+        <span class="skel skel-card__line skel-card__line--short" style="margin-left:auto"></span>
+      </div>
+    </article>
+  `;
+  return Array.from({ length: n }, () => card).join("");
+}
+
+// Cache for ESPN article descriptions, keyed by `${league}:${eventId}`.
+const summaryCache = new Map();
+
 async function refreshTonight() {
   try {
     const data = await fetchScoreboard(activeLeague);
-    const events = (data.events || [])
-      .map(ev => normalizeEvent(ev, activeLeague))
-      .sort((a, b) => {
-        // live first, then pre, then post
-        const ord = { in: 0, pre: 1, post: 2 };
-        return (ord[a.state] ?? 3) - (ord[b.state] ?? 3);
-      });
+    let events = (data.events || []).map(ev => normalizeEvent(ev, activeLeague));
+    let usingYesterday = false;
+    // Empty-state fallback: many sports (MLB on a Mon/Thu, NHL in summer)
+    // have nothing scheduled. Surface yesterday's recaps instead of a void.
     if (!events.length) {
-      tonightEl.innerHTML = `<p class="muted">No ${LEAGUES[activeLeague].label} games scheduled today.</p>`;
+      const ymd = yesterdayYYYYMMDD();
+      try {
+        const y = await fetchScoreboard(activeLeague, ymd);
+        events = (y.events || []).map(ev => normalizeEvent(ev, activeLeague));
+        usingYesterday = events.length > 0;
+      } catch { /* fall through */ }
+    }
+    if (!events.length) {
+      tonightEl.innerHTML = `<p class="muted">No ${LEAGUES[activeLeague].label} games on the schedule today or yesterday.</p>`;
       return;
     }
-    tonightEl.innerHTML = events.map(tonightCardHtml).join("");
+    events.sort((a, b) => {
+      // live first, then pre, then post
+      const ord = { in: 0, pre: 1, post: 2 };
+      return (ord[a.state] ?? 3) - (ord[b.state] ?? 3);
+    });
+    const banner = usingYesterday
+      ? `<div class="tonight-banner"><span class="tonight-banner__pill">Yesterday</span> No ${LEAGUES[activeLeague].label} games today — showing yesterday's results.</div>`
+      : "";
+    tonightEl.innerHTML = banner + events.map(tonightCardHtml).join("");
     tonightEl.querySelectorAll("[data-event-id]").forEach(el => {
       el.addEventListener("click", () => {
         location.href = `game.html?id=${el.dataset.eventId}&league=${activeLeague}`;
       });
     });
+    // Hydrate stories from ESPN's article description for richer copy than
+    // the hand-written fallback (recap on FINAL, narrative on live games).
+    events.forEach(ev => hydrateStory(ev));
   } catch (e) {
     tonightEl.innerHTML = `<p class="muted">Couldn't load games (${e.message}). Retrying…</p>`;
   }
+}
+
+function yesterdayYYYYMMDD() {
+  const d = new Date();
+  d.setDate(d.getDate() - 1);
+  return `${d.getFullYear()}${String(d.getMonth() + 1).padStart(2, "0")}${String(d.getDate()).padStart(2, "0")}`;
+}
+
+async function hydrateStory(ev) {
+  const cacheKey = `${activeLeague}:${ev.id}`;
+  let summary = summaryCache.get(cacheKey);
+  if (!summary) {
+    try { summary = await fetchSummary(ev.id, activeLeague); }
+    catch { return; }
+    summaryCache.set(cacheKey, summary);
+  }
+  const article = summary?.article || {};
+  const note = (summary?.header?.competitions?.[0]?.notes?.[0]?.headline) || "";
+  // Prefer the article description (long form) on finals; the headline is
+  // shorter and works better mid-game; the competition note is a good
+  // pre-game framing (e.g. "Game 7" / "Eastern Conference Quarterfinals").
+  const text = ev.state === "post"
+    ? trimSentence(article.description, 220) || article.headline || ""
+    : ev.state === "in"
+      ? article.headline || trimSentence(article.description, 180) || note || ""
+      : note || article.headline || "";
+  if (!text) return;
+  const card = tonightEl.querySelector(`[data-event-id="${ev.id}"] .tonight-card__story`);
+  if (card) card.textContent = text;
+}
+
+function trimSentence(s, max) {
+  if (!s) return "";
+  // ESPN descriptions often start with " — " from the AP byline; strip it.
+  let out = s.replace(/^\s*[—–-]\s*/, "").trim();
+  if (out.length <= max) return out;
+  // Trim at the last sentence boundary before max chars.
+  const slice = out.slice(0, max);
+  const lastDot = Math.max(slice.lastIndexOf(". "), slice.lastIndexOf("! "), slice.lastIndexOf("? "));
+  return (lastDot > 60 ? slice.slice(0, lastDot + 1) : slice.replace(/\s+\S*$/, "") + "…");
 }
 
 function tonightCardHtml(ev) {
@@ -237,7 +329,7 @@ function togglePanel(panel, body, loader) {
   [standingsPanel, statsPanel].forEach(p => { if (p !== panel) p.hidden = true; });
   if (panel.hidden) {
     panel.hidden = false;
-    body.innerHTML = `<p class="muted">Loading…</p>`;
+    body.innerHTML = panelSkeleton();
     loader().catch(e => {
       body.innerHTML = `<p class="muted">Couldn't load (${escape(e.message)}).</p>`;
     });
@@ -245,6 +337,11 @@ function togglePanel(panel, body, loader) {
   } else {
     panel.hidden = true;
   }
+}
+
+function panelSkeleton() {
+  const row = `<div class="skel-card__row"><span class="skel skel-card__line skel-card__line--short"></span><span class="skel skel-card__line"></span><span class="skel skel-card__line skel-card__line--short" style="margin-left:auto"></span></div>`;
+  return `<div class="skel-card" aria-hidden="true">${Array.from({length: 6}, () => row).join("")}</div>`;
 }
 
 function closePanels() {

@@ -1980,6 +1980,84 @@ img {
 .stat-card__team { color: var(--text-mute); font-size: 11px; font-weight: 600; }
 .stat-card__value { font-weight: 700; font-variant-numeric: tabular-nums; color: var(--text-dark); }
 
+/* Yesterday-fallback banner shown above tonight cards */
+.tonight-banner {
+  grid-column: 1 / -1;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 14px;
+  margin-bottom: 4px;
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-left: 3px solid var(--amber);
+  border-radius: var(--radius);
+  font-size: 12px;
+  color: var(--text-mute-2);
+}
+
+.tonight-banner__pill {
+  background: var(--amber);
+  color: #fff;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  padding: 2px 8px;
+  border-radius: 4px;
+}
+
+/* Loading skeletons */
+@keyframes shimmer {
+  0% { background-position: -400px 0; }
+  100% { background-position: 400px 0; }
+}
+
+.skel {
+  background: linear-gradient(90deg, var(--bg-page) 0%, #e8ebee 50%, var(--bg-page) 100%);
+  background-size: 800px 100%;
+  animation: shimmer 1.4s infinite linear;
+  border-radius: 6px;
+  display: inline-block;
+}
+
+.skel-card {
+  background: var(--bg-card);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-sm);
+  padding: 20px;
+  border: 1px solid var(--border);
+}
+
+.skel-card__row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 14px;
+}
+
+.skel-card__row:last-child { margin-bottom: 0; }
+
+.skel-card__circle {
+  width: 56px;
+  height: 56px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.skel-card__line {
+  height: 12px;
+  flex: 1;
+}
+
+.skel-card__line--short { width: 40%; flex: none; }
+.skel-card__line--mid { width: 70%; flex: none; }
+
+@media (max-width: 768px) {
+  .skel-card { padding: 14px; }
+  .skel-card__circle { width: 44px; height: 44px; }
+}
+
 /* Home: bracket teaser card (legacy — kept for fallback links) */
 .bracket-teaser {
   margin-top: 32px;

@@ -1,7 +1,7 @@
 // Full ESPN-style NBA playoff bracket — 7-column grid, West-Center-East,
 // connector lines between rounds, live game highlighting.
 
-import { renderNav, mountTicker, escape } from "./script.js?v2026050103";
+import { renderNav, mountTicker, escape } from "./script.js?v2026050106";
 import { TEAM_LOGO } from "./espn.js?v2026050103";
 
 renderNav("bracket");
@@ -138,8 +138,12 @@ function teamRow(s, idx, isFinals) {
   const isWinner = wins > otherWins && (wins === 4);
   const isLoser = otherWins === 4;
   const tbd = !abbr || abbr === "TBD" || abbr.includes("/") || abbr.endsWith("?");
-  const rightVal = score != null ? `<span class="bp-card__score ${isWinner ? "is-winner" : ""}">${score}</span>`
-    : (wins > 0 ? `<span class="bp-card__wins ${isWinner ? "is-winner" : ""}">${wins}</span>` : "");
+  // Show wins on both teams once the series has started (one side has at least
+  // one game), so a 4-0 sweep reads as "4 / 0" rather than "4 / blank".
+  const seriesStarted = (s.wins?.[0] || 0) > 0 || (s.wins?.[1] || 0) > 0;
+  const rightVal = score != null
+    ? `<span class="bp-card__score ${isWinner ? "is-winner" : ""}">${score}</span>`
+    : (seriesStarted ? `<span class="bp-card__wins ${isWinner ? "is-winner" : ""}">${wins}</span>` : "");
 
   return `
     <div class="bp-card__team ${isLoser ? "is-loser" : ""}">
