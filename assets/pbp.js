@@ -1,10 +1,10 @@
 // Play-by-Play feed: real ESPN plays + inline market move cards.
 // Each play is a card with reactions, comments, and team context.
 
-import { escape, spawnFloatingEmoji, teamHex, teamChipsHtml } from "./script.js?v2026050201";
-import { TEAM_LOGO } from "./espn.js?v2026050201";
-import { get, set, commentsKey, reactionsKey } from "./storage.js?v2026050201";
-import { requireIdentity, getIdentity } from "./identity.js?v2026050201";
+import { escape, spawnFloatingEmoji, teamHex, teamChipsHtml } from "./script.js?v2026050202";
+import { TEAM_LOGO } from "./espn.js?v2026050202";
+import { get, set, commentsKey, reactionsKey } from "./storage.js?v2026050202";
+import { requireIdentity, getIdentity } from "./identity.js?v2026050202";
 
 const PRESET_EMOJIS = ["🔥", "😱", "🤯", "💀", "🏀"];
 

@@ -2,13 +2,13 @@
 // selected league, and a row of action buttons at the bottom that surface
 // bracket / standings / season leaders inline (ESPN-style).
 
-import { renderNav, mountTicker, escape, teamHex } from "./script.js?v2026050201";
+import { renderNav, mountTicker, escape, teamHex } from "./script.js?v2026050202";
 import {
   fetchScoreboard, fetchSummary, normalizeEvent, pollScoreboard, LEAGUES,
-} from "./espn.js?v2026050201";
+} from "./espn.js?v2026050202";
 import {
   matchEspnToSplash, popularPropsForGame, playerInitials,
-} from "./quickpicks.js?v2026050201";
+} from "./quickpicks.js?v2026050202";
 
 const HOME_LEAGUES = ["nba", "mlb", "nhl", "pga"];
 
@@ -45,7 +45,7 @@ const ACTIONS = {
     { kind: "stats",     label: "Season leaders",  sub: "Goals & assists",          icon: "📈" },
   ],
   pga: [
-    { kind: "stats",     label: "Tour leaders",    sub: "FedEx Cup & money list",   icon: "🏆" },
+    { kind: "stats",     label: "Tour leaders",    sub: "FedEx Cup, money, scoring", icon: "🏆" },
   ],
 };
 
@@ -494,6 +494,9 @@ async function refreshPga() {
       return;
     }
     tonightEl.innerHTML = events.map(pgaTournamentCardHtml).join("");
+    // Hydrate per-player status so we can show tee times for golfers who
+    // haven't started their current round yet.
+    events.forEach(ev => hydratePgaTeeTimes(ev));
   } catch (e) {
     tonightEl.innerHTML = `<p class="muted">Couldn't load PGA (${e.message}).</p>`;
   }
@@ -504,15 +507,15 @@ function pgaTournamentCardHtml(ev) {
   const status = c.status?.type?.shortDetail || ev.status?.type?.shortDetail || "";
   const courseName = c.course?.name || ev.venue?.fullName || "";
   const players = (c.competitors || []).slice(0, 5).map(p => ({
+    competitorId: p.id,
     pos: p.status?.position?.id || p.status?.position?.displayName || "",
     name: p.athlete?.shortName || p.athlete?.displayName || "",
-    score: p.score || (p.linescores && p.linescores.length ? p.linescores[p.linescores.length - 1]?.value : ""),
-    today: (p.linescores && p.linescores.length) ? (p.linescores[p.linescores.length - 1]?.value ?? "") : "",
-    thru: p.status?.thru || "",
+    score: p.score || "",
+    thru: derivePgaThru(p),
     flag: p.athlete?.flag?.href || "",
   }));
   return `
-    <article class="pga-tournament-card">
+    <article class="pga-tournament-card" data-event-id="${escape(ev.id)}">
       <header class="pga-tournament-card__header">
         <div class="pga-tournament-card__eyebrow">PGA Tour · ${escape(status)}</div>
         <h2 class="pga-tournament-card__title">${escape(ev.name || ev.shortName || "Tournament")}</h2>
@@ -524,14 +527,14 @@ function pgaTournamentCardHtml(ev) {
             <span>Pos</span><span>Player</span><span>Total</span><span>Thru</span>
           </div>
           ${players.map(p => `
-            <div class="pga-tournament-card__row">
+            <div class="pga-tournament-card__row" data-competitor-id="${escape(p.competitorId)}">
               <span class="pga-tournament-card__pos">${escape(String(p.pos || ""))}</span>
               <span class="pga-tournament-card__player">
                 ${p.flag ? `<img src="${escape(p.flag)}" alt="" class="pga-flag" />` : ""}
                 <b>${escape(p.name)}</b>
               </span>
               <span class="pga-tournament-card__score">${escape(String(p.score || "—"))}</span>
-              <span>${escape(String(p.thru || "—"))}</span>
+              <span class="pga-tournament-card__thru">${escape(String(p.thru || "—"))}</span>
             </div>
           `).join("")}
         `}
@@ -539,6 +542,58 @@ function pgaTournamentCardHtml(ev) {
       <a class="pga-tournament-card__cta" href="scoreboard.html?league=pga">Full leaderboard →</a>
     </article>
   `;
+}
+
+// Derive the "thru" indicator from current-round linescore data when ESPN's
+// status field isn't on the competitor (the scoreboard endpoint trims it).
+// Returns "F" when finished, holes-played count, or empty (we'll fill with
+// tee time in hydratePgaTeeTimes).
+function derivePgaThru(p) {
+  const ls = p.linescores || [];
+  if (!ls.length) return "";
+  const current = ls[ls.length - 1];
+  if (!current) return "";
+  // If this round has no score yet (value 0 with displayValue "-" or empty),
+  // we don't know yet — mark "" so the hydrator can fill in the tee time.
+  if (current.value === undefined) return "";
+  if (current.displayValue === "-" || current.value === 0) return "";
+  // Otherwise count completed holes from the round's hole-by-hole linescores.
+  const inner = current.linescores || [];
+  if (inner.length === 18) return "F";
+  if (inner.length) return String(inner.length);
+  return "F";
+}
+
+async function hydratePgaTeeTimes(ev) {
+  const competitors = ev.competitions?.[0]?.competitors || [];
+  const top = competitors.slice(0, 5);
+  await Promise.all(top.map(async (p) => {
+    const row = tonightEl.querySelector(`.pga-tournament-card[data-event-id="${ev.id}"] [data-competitor-id="${p.id}"]`);
+    if (!row) return;
+    const thruEl = row.querySelector(".pga-tournament-card__thru");
+    if (!thruEl || (thruEl.textContent.trim() && thruEl.textContent.trim() !== "—")) return;
+    try {
+      const url = `https://sports.core.api.espn.com/v2/sports/golf/leagues/pga/events/${ev.id}/competitions/${ev.id}/competitors/${p.id}/status`;
+      const r = await fetch(url);
+      if (!r.ok) return;
+      const data = await r.json();
+      if (data.type?.state === "pre" && data.teeTime) {
+        thruEl.textContent = formatTeeTime(data.teeTime, data.startHole);
+        thruEl.classList.add("pga-tournament-card__thru--tee");
+      } else if (data.type?.completed) {
+        thruEl.textContent = "F";
+      } else if (data.thru) {
+        thruEl.textContent = String(data.thru);
+      }
+    } catch { /* fall through */ }
+  }));
+}
+
+function formatTeeTime(iso, startHole) {
+  const d = new Date(iso);
+  const time = d.toLocaleTimeString([], { hour: "numeric", minute: "2-digit" }).replace(/\s/g, "").toLowerCase();
+  // ESPN's UI shows "1:35p · 10" when starting from hole 10
+  return startHole && startHole !== 1 ? `${time} · ${startHole}` : time;
 }
 
 async function hydrateStory(ev) {
@@ -810,7 +865,17 @@ const STAT_CATEGORIES = {
     { sortKey: "offensive.shotsTotal", group: "offensive", statName: "shotsTotal", label: "Shots on goal",     short: "SOG" },
     { sortKey: "defensive.savePct",    group: "defensive", statName: "savePct",    label: "Save % (goalies)",  short: "SV%" },
   ],
+  pga: [
+    { sortKey: "general.cupPoints",       group: "general", statName: "cupPoints",       label: "FedEx Cup",       short: "FEC" },
+    { sortKey: "general.amount",          group: "general", statName: "amount",          label: "Money list",      short: "$" },
+    { sortKey: "general.wins",            group: "general", statName: "wins",            label: "Wins",            short: "W" },
+    { sortKey: "general.topTenFinishes",  group: "general", statName: "topTenFinishes",  label: "Top 10s",         short: "T10" },
+    { sortKey: "general.scoringAverage",  group: "general", statName: "scoringAverage",  label: "Scoring average", short: "AVG", asc: true },
+  ],
 };
+
+const PREVIEW_LEADERS = 5;
+const FULL_LEADERS = 25;
 
 async function loadStats(league) {
   const cfg = LEAGUES[league];
@@ -822,7 +887,7 @@ async function loadStats(league) {
 
   const urls = cats.map(c => {
     const dir = c.asc ? "asc" : "desc";
-    return `https://site.web.api.espn.com/apis/common/v3/sports/${cfg.sport}/${cfg.league}/statistics/byathlete?limit=5&sort=${c.sortKey}:${dir}`;
+    return `https://site.web.api.espn.com/apis/common/v3/sports/${cfg.sport}/${cfg.league}/statistics/byathlete?limit=${FULL_LEADERS}&sort=${c.sortKey}:${dir}`;
   });
 
   const results = await Promise.all(
@@ -831,6 +896,15 @@ async function loadStats(league) {
 
   const cards = cats.map((c, i) => statCategoryHtml(c, results[i]));
   statsBody.innerHTML = `<div class="stats-grid">${cards.join("")}</div>`;
+
+  // Wire "View all N" toggles.
+  statsBody.querySelectorAll("[data-stat-expand]").forEach(btn => {
+    btn.addEventListener("click", () => {
+      const card = btn.closest(".stat-card");
+      const expanded = card.classList.toggle("is-expanded");
+      btn.textContent = expanded ? "Show top 5 ↑" : `View all ${card.dataset.fullCount} →`;
+    });
+  });
 }
 
 function statCategoryHtml(cat, data) {
@@ -839,7 +913,7 @@ function statCategoryHtml(cat, data) {
   }
   const groupSchema = (data.categories || []).find(c => c && c.name === cat.group);
   const idx = groupSchema?.names ? groupSchema.names.indexOf(cat.statName) : -1;
-  const items = (data.athletes || []).slice(0, 5).map(a => {
+  const items = (data.athletes || []).slice(0, FULL_LEADERS).map(a => {
     const ath = a.athlete || {};
     const groupVals = (a.categories || []).find(c => c.name === cat.group)?.values || [];
     const raw = idx >= 0 ? groupVals[idx] : null;
@@ -850,25 +924,40 @@ function statCategoryHtml(cat, data) {
     };
   });
 
+  if (!items.length) {
+    return `<div class="stat-card"><div class="stat-card__title">${escape(cat.label)}</div><p class="muted">No data.</p></div>`;
+  }
+
+  const rowsHtml = items.map((it, i) => `
+    <li class="stat-card__row" data-stat-row="${i}">
+      <span class="stat-card__rank">${i + 1}</span>
+      <span class="stat-card__player">${escape(it.name)}</span>
+      <span class="stat-card__team">${escape(it.team)}</span>
+      <span class="stat-card__value">${escape(it.value)}</span>
+    </li>
+  `).join("");
+
+  const showExpand = items.length > PREVIEW_LEADERS;
   return `
-    <div class="stat-card">
+    <div class="stat-card" data-full-count="${items.length}">
       <div class="stat-card__title">${escape(cat.label)} <span class="stat-card__short">${escape(cat.short)}</span></div>
-      <ol class="stat-card__list">
-        ${items.map((it, i) => `
-          <li class="stat-card__row">
-            <span class="stat-card__rank">${i + 1}</span>
-            <span class="stat-card__player">${escape(it.name)}</span>
-            <span class="stat-card__team">${escape(it.team)}</span>
-            <span class="stat-card__value">${escape(it.value)}</span>
-          </li>
-        `).join("")}
-      </ol>
+      <ol class="stat-card__list">${rowsHtml}</ol>
+      ${showExpand ? `<button class="stat-card__expand" type="button" data-stat-expand>View all ${items.length} →</button>` : ""}
     </div>
   `;
 }
 
 function formatStat(raw, name) {
   if (raw == null || isNaN(raw)) return "—";
+  // PGA money list: format as $X.XM / $XXXk.
+  if (name === "amount") {
+    const n = Number(raw);
+    if (n >= 1_000_000) return `$${(n / 1_000_000).toFixed(2)}M`;
+    if (n >= 1_000) return `$${Math.round(n / 1_000)}k`;
+    return `$${n}`;
+  }
+  if (name === "scoringAverage") return Number(raw).toFixed(2);
+  if (name === "cupPoints" || name === "topTenFinishes") return String(Math.round(Number(raw)));
   // Batting average: 0.327 → .327
   if (name === "avg") return Number(raw).toFixed(3).replace(/^0/, "");
   if (name === "ERA") return Number(raw).toFixed(2);

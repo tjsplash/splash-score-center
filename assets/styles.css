@@ -2618,6 +2618,25 @@ img {
 .stat-card__team { color: var(--text-mute); font-size: 11px; font-weight: 600; }
 .stat-card__value { font-weight: 700; font-variant-numeric: tabular-nums; color: var(--text-dark); }
 
+/* Collapse: show only the first 5 rows by default; expand reveals the rest. */
+.stat-card:not(.is-expanded) .stat-card__row[data-stat-row]:not([data-stat-row="0"]):not([data-stat-row="1"]):not([data-stat-row="2"]):not([data-stat-row="3"]):not([data-stat-row="4"]) {
+  display: none;
+}
+
+.stat-card__expand {
+  margin-top: 8px;
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--teal-deep);
+  background: transparent;
+  letter-spacing: 0.02em;
+  cursor: pointer;
+  padding: 4px 0;
+  align-self: flex-start;
+}
+
+.stat-card__expand:hover { color: var(--teal); text-decoration: underline; }
+
 /* Home date scroller */
 
 .home-date {
@@ -2783,6 +2802,17 @@ img {
   font-weight: 700;
   font-variant-numeric: tabular-nums;
   color: var(--text-dark);
+}
+
+.pga-tournament-card__thru {
+  font-variant-numeric: tabular-nums;
+  color: var(--text-mute-2);
+}
+
+.pga-tournament-card__thru--tee {
+  font-weight: 700;
+  color: var(--teal-deep);
+  letter-spacing: -0.01em;
 }
 
 .pga-tournament-card__cta {

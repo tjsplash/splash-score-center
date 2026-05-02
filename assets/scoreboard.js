@@ -2,11 +2,11 @@
 // list (NBA, MLB, NHL, WNBA, PGA leaderboard). Live data from ESPN's public
 // scoreboard endpoints.
 
-import { renderNav, mountTicker, escape } from "./script.js?v2026050201";
+import { renderNav, mountTicker, escape } from "./script.js?v2026050202";
 import {
   fetchScoreboard, fetchSummary, normalizeEvent,
   pollScoreboard, LEAGUES, TEAM_LOGO,
-} from "./espn.js?v2026050201";
+} from "./espn.js?v2026050202";
 
 renderNav("scoreboard");
 mountTicker(document.querySelector(".ticker"));
