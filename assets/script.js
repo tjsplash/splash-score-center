@@ -1,7 +1,7 @@
 // Shared bootstrap: nav, sticky ticker, identity surface in header.
 
-import { fetchScoreboard, normalizeEvent, pollScoreboard, pollMultiSportScoreboard, TONIGHT_EVENT_IDS, LEAGUES } from "./espn.js?v2026050202";
-import { getIdentity } from "./identity.js?v2026050202";
+import { fetchScoreboard, normalizeEvent, pollScoreboard, pollMultiSportScoreboard, TONIGHT_EVENT_IDS, LEAGUES } from "./espn.js?v2026050203";
+import { getIdentity } from "./identity.js?v2026050203";
 
 // Single shared event bus.
 export const bus = new EventTarget();

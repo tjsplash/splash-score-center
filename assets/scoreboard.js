@@ -2,11 +2,11 @@
 // list (NBA, MLB, NHL, WNBA, PGA leaderboard). Live data from ESPN's public
 // scoreboard endpoints.
 
-import { renderNav, mountTicker, escape } from "./script.js?v2026050202";
+import { renderNav, mountTicker, escape } from "./script.js?v2026050203";
 import {
   fetchScoreboard, fetchSummary, normalizeEvent,
   pollScoreboard, LEAGUES, TEAM_LOGO,
-} from "./espn.js?v2026050202";
+} from "./espn.js?v2026050203";
 
 renderNav("scoreboard");
 mountTicker(document.querySelector(".ticker"));
@@ -368,60 +368,141 @@ function periodHead(league) {
 }
 
 // PGA leaderboard rendering — different shape from team sports.
+// PGA round selection lives at module scope so the dropdown change can
+// re-render against the most recent payload without an extra fetch.
+let pgaSelectedRound = null;
+let pgaLastPayload = null;
+const PGA_LEADERBOARD_LIMIT = 30;
+
 async function refreshPga() {
   try {
     const data = await fetchScoreboard("pga", activeDate);
     const events = data.events || [];
     if (!events.length) {
       list.innerHTML = `<p class="muted">No PGA tournament today.</p>`;
+      pgaLastPayload = null;
       return;
     }
-    list.innerHTML = events.map(pgaTournamentHtml).join("");
+    pgaLastPayload = events;
+    if (pgaSelectedRound == null) pgaSelectedRound = pgaCurrentRound(events[0]);
+    renderPga(events);
   } catch (e) {
     list.innerHTML = `<p class="muted">Couldn't load PGA (${e.message}).</p>`;
   }
+}
+
+function renderPga(events) {
+  list.innerHTML = events.map(pgaTournamentHtml).join("");
+  const sel = list.querySelector("#pga-round-select");
+  if (sel) {
+    sel.addEventListener("change", () => {
+      pgaSelectedRound = parseInt(sel.value, 10) || 1;
+      if (pgaLastPayload) renderPga(pgaLastPayload);
+    });
+  }
+  events.forEach(ev => hydratePgaTeeTimes(ev));
+}
+
+function pgaCurrentRound(ev) {
+  return ev.competitions?.[0]?.status?.period || 1;
 }
 
 function pgaTournamentHtml(ev) {
   const c = ev.competitions?.[0] || {};
   const status = c.status?.type?.shortDetail || ev.status?.type?.shortDetail || "";
   const courseName = c.course?.name || ev.venue?.fullName || "";
-  const players = (c.competitors || []).slice(0, 20).map(p => ({
-    pos: p.status?.position?.id || p.status?.position || "",
-    name: p.athlete?.shortName || p.athlete?.displayName || "",
-    score: p.score || "",
-    today: (p.linescores && p.linescores.length) ? (p.linescores[p.linescores.length - 1]?.value ?? "") : "",
-    thru: p.status?.thru || "",
-    flag: p.athlete?.flag?.href || "",
-  }));
+  const cur = pgaCurrentRound(ev);
+  const round = pgaSelectedRound || cur;
+  const players = (c.competitors || []).slice(0, PGA_LEADERBOARD_LIMIT);
 
   return `
-    <article class="pga-card">
+    <article class="pga-card" data-event-id="${escape(ev.id)}">
       <header class="pga-card__header">
         <div>
           <div class="pga-card__eyebrow">PGA · ${escape(status)}</div>
           <h2 class="pga-card__title">${escape(ev.name || ev.shortName || "Tournament")}</h2>
           <div class="pga-card__course">${escape(courseName)}</div>
         </div>
+        <div class="pga-card__round-picker">
+          <label for="pga-round-select">Round</label>
+          <select id="pga-round-select">
+            ${[1, 2, 3, 4].map(r => `<option value="${r}" ${r === round ? "selected" : ""}>R${r}${r === cur ? " · live" : ""}</option>`).join("")}
+          </select>
+        </div>
       </header>
       <table class="pga-leaderboard">
         <thead>
-          <tr><th>Pos</th><th>Player</th><th>Total</th><th>Today</th><th>Thru</th></tr>
+          <tr><th>Pos</th><th>Player</th><th>Total</th><th>R${round}</th><th>Thru</th></tr>
         </thead>
         <tbody>
-          ${players.map(p => `
-            <tr>
-              <td class="pga-leaderboard__pos">${escape(String(p.pos || ""))}</td>
-              <td class="pga-leaderboard__player">${p.flag ? `<img src="${escape(p.flag)}" alt="" class="pga-flag" />` : ""}<b>${escape(p.name)}</b></td>
-              <td class="pga-leaderboard__score">${escape(String(p.score || ""))}</td>
-              <td>${escape(String(p.today || ""))}</td>
-              <td>${escape(String(p.thru || ""))}</td>
-            </tr>
-          `).join("")}
+          ${players.map(p => pgaLeaderboardRowHtml(p, round, cur)).join("")}
         </tbody>
       </table>
     </article>
   `;
+}
+
+function pgaLeaderboardRowHtml(p, round, cur) {
+  const flag = p.athlete?.flag?.href || "";
+  const name = p.athlete?.shortName || p.athlete?.displayName || "";
+  const pos = p.status?.position?.displayName || p.status?.position?.id || "";
+  return `
+    <tr data-competitor-id="${escape(p.id)}">
+      <td class="pga-leaderboard__pos">${escape(String(pos))}</td>
+      <td class="pga-leaderboard__player">${flag ? `<img src="${escape(flag)}" alt="" class="pga-flag" />` : ""}<b>${escape(name)}</b></td>
+      <td class="pga-leaderboard__score">${escape(String(p.score || "—"))}</td>
+      <td class="pga-leaderboard__round">${escape(pgaRoundScoreFor(p, round))}</td>
+      <td class="pga-leaderboard__thru">${escape(pgaThruFor(p, round, cur))}</td>
+    </tr>
+  `;
+}
+
+function pgaRoundScoreFor(p, round) {
+  const ls = p.linescores?.[round - 1];
+  if (!ls || !ls.displayValue || ls.displayValue === "-") return "—";
+  return ls.displayValue;
+}
+
+function pgaThruFor(p, round, cur) {
+  const ls = p.linescores?.[round - 1];
+  if (!ls) return "—";
+  const inner = ls.linescores || [];
+  if (round < cur) return inner.length === 18 ? "F" : (inner.length ? String(inner.length) : "—");
+  if (round > cur) return "—";
+  if (inner.length === 18) return "F";
+  if (inner.length) return String(inner.length);
+  return "";
+}
+
+async function hydratePgaTeeTimes(ev) {
+  const competitors = ev.competitions?.[0]?.competitors || [];
+  const top = competitors.slice(0, PGA_LEADERBOARD_LIMIT);
+  await Promise.all(top.map(async (p) => {
+    const row = list.querySelector(`.pga-card[data-event-id="${ev.id}"] tr[data-competitor-id="${p.id}"]`);
+    if (!row) return;
+    const thruEl = row.querySelector(".pga-leaderboard__thru");
+    if (!thruEl || thruEl.textContent.trim()) return;
+    try {
+      const url = `https://sports.core.api.espn.com/v2/sports/golf/leagues/pga/events/${ev.id}/competitions/${ev.id}/competitors/${p.id}/status`;
+      const r = await fetch(url);
+      if (!r.ok) return;
+      const data = await r.json();
+      if (data.type?.state === "pre" && data.teeTime) {
+        thruEl.textContent = formatTeeTime(data.teeTime, data.startHole);
+        thruEl.classList.add("pga-leaderboard__thru--tee");
+      } else if (data.type?.completed) {
+        thruEl.textContent = "F";
+      } else if (data.thru) {
+        thruEl.textContent = String(data.thru);
+      }
+    } catch { /* ignore */ }
+  }));
+}
+
+function formatTeeTime(iso, startHole) {
+  const d = new Date(iso);
+  const time = d.toLocaleTimeString([], { hour: "numeric", minute: "2-digit" }).replace(/\s/g, "").toLowerCase();
+  return startHole && startHole !== 1 ? `${time} · ${startHole}` : time;
 }
 
 startPolling();

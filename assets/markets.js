@@ -3,11 +3,11 @@
 // opposite (synthesized when only one side exists in the seed data) so every
 // card shows yes/no percentages plus a dual-line history chart.
 
-import { escape, teamHex } from "./script.js?v2026050202";
-import { injectMarketMove } from "./pbp.js?v2026050202";
+import { escape, teamHex } from "./script.js?v2026050203";
+import { injectMarketMove } from "./pbp.js?v2026050203";
 import {
   matchEspnToSplash, groupPropsByPlayer, playerInitials,
-} from "./quickpicks.js?v2026050202";
+} from "./quickpicks.js?v2026050203";
 
 const SWING_THRESHOLD = 0.05;
 const HISTORY_LEN = 60;

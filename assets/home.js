@@ -2,13 +2,13 @@
 // selected league, and a row of action buttons at the bottom that surface
 // bracket / standings / season leaders inline (ESPN-style).
 
-import { renderNav, mountTicker, escape, teamHex } from "./script.js?v2026050202";
+import { renderNav, mountTicker, escape, teamHex } from "./script.js?v2026050203";
 import {
   fetchScoreboard, fetchSummary, normalizeEvent, pollScoreboard, LEAGUES,
-} from "./espn.js?v2026050202";
+} from "./espn.js?v2026050203";
 import {
   matchEspnToSplash, popularPropsForGame, playerInitials,
-} from "./quickpicks.js?v2026050202";
+} from "./quickpicks.js?v2026050203";
 
 const HOME_LEAGUES = ["nba", "mlb", "nhl", "pga"];
 
@@ -485,6 +485,10 @@ function yesterdayYYYYMMDD() {
 
 // ---- Golf (PGA) — tournament leaderboard preview ----
 
+// PGA round selection — defaults to the current/active round on first render.
+let pgaSelectedRound = null;
+let pgaLastEvent = null;
+
 async function refreshPga() {
   try {
     const data = await fetchScoreboard("pga", activeDate);
@@ -493,27 +497,37 @@ async function refreshPga() {
       tonightEl.innerHTML = `<p class="muted">No PGA tournament for ${prettyDate(activeDate)}.</p>`;
       return;
     }
-    tonightEl.innerHTML = events.map(pgaTournamentCardHtml).join("");
-    // Hydrate per-player status so we can show tee times for golfers who
-    // haven't started their current round yet.
-    events.forEach(ev => hydratePgaTeeTimes(ev));
+    pgaLastEvent = events[0];
+    if (pgaSelectedRound == null) pgaSelectedRound = currentRound(pgaLastEvent);
+    tonightEl.innerHTML = events.map(ev => pgaTournamentCardHtml(ev, /* topN */ 5)).join("");
+    wirePgaRoundPicker();
+    events.forEach(ev => hydratePgaTeeTimes(ev, 5, ".pga-tournament-card"));
   } catch (e) {
     tonightEl.innerHTML = `<p class="muted">Couldn't load PGA (${e.message}).</p>`;
   }
 }
 
-function pgaTournamentCardHtml(ev) {
+function wirePgaRoundPicker() {
+  const sel = tonightEl.querySelector("#pga-round-select");
+  if (!sel) return;
+  sel.addEventListener("change", () => {
+    pgaSelectedRound = parseInt(sel.value, 10) || 1;
+    if (pgaLastEvent) {
+      tonightEl.innerHTML = pgaTournamentCardHtml(pgaLastEvent, 5);
+      wirePgaRoundPicker();
+      hydratePgaTeeTimes(pgaLastEvent, 5, ".pga-tournament-card");
+    }
+  });
+}
+
+function pgaTournamentCardHtml(ev, topN = 5) {
   const c = ev.competitions?.[0] || {};
   const status = c.status?.type?.shortDetail || ev.status?.type?.shortDetail || "";
   const courseName = c.course?.name || ev.venue?.fullName || "";
-  const players = (c.competitors || []).slice(0, 5).map(p => ({
-    competitorId: p.id,
-    pos: p.status?.position?.id || p.status?.position?.displayName || "",
-    name: p.athlete?.shortName || p.athlete?.displayName || "",
-    score: p.score || "",
-    thru: derivePgaThru(p),
-    flag: p.athlete?.flag?.href || "",
-  }));
+  const cur = currentRound(ev);
+  const round = pgaSelectedRound || cur;
+  const competitors = (c.competitors || []);
+  const visible = competitors.slice(0, topN);
   return `
     <article class="pga-tournament-card" data-event-id="${escape(ev.id)}">
       <header class="pga-tournament-card__header">
@@ -521,22 +535,13 @@ function pgaTournamentCardHtml(ev) {
         <h2 class="pga-tournament-card__title">${escape(ev.name || ev.shortName || "Tournament")}</h2>
         <div class="pga-tournament-card__course">${escape(courseName)}</div>
       </header>
+      ${pgaRoundPickerHtml(round, cur)}
       <div class="pga-tournament-card__leaders">
-        ${players.length === 0 ? `<p class="muted" style="margin:8px 0;">Field not yet posted.</p>` : `
+        ${visible.length === 0 ? `<p class="muted" style="margin:8px 0;">Field not yet posted.</p>` : `
           <div class="pga-tournament-card__row pga-tournament-card__row--head">
-            <span>Pos</span><span>Player</span><span>Total</span><span>Thru</span>
+            <span>Pos</span><span>Player</span><span>Total</span><span>R${round}</span><span>Thru</span>
           </div>
-          ${players.map(p => `
-            <div class="pga-tournament-card__row" data-competitor-id="${escape(p.competitorId)}">
-              <span class="pga-tournament-card__pos">${escape(String(p.pos || ""))}</span>
-              <span class="pga-tournament-card__player">
-                ${p.flag ? `<img src="${escape(p.flag)}" alt="" class="pga-flag" />` : ""}
-                <b>${escape(p.name)}</b>
-              </span>
-              <span class="pga-tournament-card__score">${escape(String(p.score || "—"))}</span>
-              <span class="pga-tournament-card__thru">${escape(String(p.thru || "—"))}</span>
-            </div>
-          `).join("")}
+          ${visible.map(p => pgaPlayerRowHtml(p, round, cur)).join("")}
         `}
       </div>
       <a class="pga-tournament-card__cta" href="scoreboard.html?league=pga">Full leaderboard →</a>
@@ -544,34 +549,75 @@ function pgaTournamentCardHtml(ev) {
   `;
 }
 
-// Derive the "thru" indicator from current-round linescore data when ESPN's
-// status field isn't on the competitor (the scoreboard endpoint trims it).
-// Returns "F" when finished, holes-played count, or empty (we'll fill with
-// tee time in hydratePgaTeeTimes).
-function derivePgaThru(p) {
-  const ls = p.linescores || [];
-  if (!ls.length) return "";
-  const current = ls[ls.length - 1];
-  if (!current) return "";
-  // If this round has no score yet (value 0 with displayValue "-" or empty),
-  // we don't know yet — mark "" so the hydrator can fill in the tee time.
-  if (current.value === undefined) return "";
-  if (current.displayValue === "-" || current.value === 0) return "";
-  // Otherwise count completed holes from the round's hole-by-hole linescores.
-  const inner = current.linescores || [];
-  if (inner.length === 18) return "F";
-  if (inner.length) return String(inner.length);
-  return "F";
+function pgaRoundPickerHtml(round, cur) {
+  return `
+    <div class="pga-round-picker">
+      <label for="pga-round-select">Round</label>
+      <select id="pga-round-select">
+        ${[1, 2, 3, 4].map(r => `<option value="${r}" ${r === round ? "selected" : ""}>R${r}${r === cur ? " · live" : ""}</option>`).join("")}
+      </select>
+    </div>
+  `;
 }
 
-async function hydratePgaTeeTimes(ev) {
+function pgaPlayerRowHtml(p, round, currentRoundN) {
+  const flag = p.athlete?.flag?.href || "";
+  const name = p.athlete?.shortName || p.athlete?.displayName || "";
+  return `
+    <div class="pga-tournament-card__row" data-competitor-id="${escape(p.id)}">
+      <span class="pga-tournament-card__pos">${escape(String(p.status?.position?.displayName || p.status?.position?.id || ""))}</span>
+      <span class="pga-tournament-card__player">
+        ${flag ? `<img src="${escape(flag)}" alt="" class="pga-flag" />` : ""}
+        <b>${escape(name)}</b>
+      </span>
+      <span class="pga-tournament-card__score">${escape(String(p.score || "—"))}</span>
+      <span class="pga-tournament-card__round">${escape(roundScoreFor(p, round))}</span>
+      <span class="pga-tournament-card__thru">${escape(thruFor(p, round, currentRoundN))}</span>
+    </div>
+  `;
+}
+
+function currentRound(ev) {
+  const c = ev.competitions?.[0];
+  return c?.status?.period || 1;
+}
+
+function roundScoreFor(p, round) {
+  const ls = p.linescores?.[round - 1];
+  if (!ls) return "—";
+  // displayValue can be "-8", "+1", "E", "-" (not yet started). Show as-is
+  // unless it's "-" / null.
+  if (!ls.displayValue || ls.displayValue === "-") return "—";
+  return ls.displayValue;
+}
+
+function thruFor(p, round, currentRoundN) {
+  const ls = p.linescores?.[round - 1];
+  if (!ls) return "—";
+  const inner = ls.linescores || [];
+  if (round < currentRoundN) {
+    // Past round — should be 18 holes complete.
+    return inner.length === 18 ? "F" : (inner.length ? String(inner.length) : "—");
+  }
+  if (round > currentRoundN) {
+    // Future round — score and thru are TBD.
+    return "—";
+  }
+  // Current round in progress.
+  if (inner.length === 18) return "F";
+  if (inner.length) return String(inner.length);
+  // Empty current round — hydrator will fill in the tee time.
+  return "";
+}
+
+async function hydratePgaTeeTimes(ev, topN, scopeSelector) {
   const competitors = ev.competitions?.[0]?.competitors || [];
-  const top = competitors.slice(0, 5);
+  const top = competitors.slice(0, topN);
   await Promise.all(top.map(async (p) => {
-    const row = tonightEl.querySelector(`.pga-tournament-card[data-event-id="${ev.id}"] [data-competitor-id="${p.id}"]`);
+    const row = tonightEl.querySelector(`${scopeSelector}[data-event-id="${ev.id}"] [data-competitor-id="${p.id}"]`);
     if (!row) return;
     const thruEl = row.querySelector(".pga-tournament-card__thru");
-    if (!thruEl || (thruEl.textContent.trim() && thruEl.textContent.trim() !== "—")) return;
+    if (!thruEl || (thruEl.textContent.trim() && thruEl.textContent.trim() !== "")) return;
     try {
       const url = `https://sports.core.api.espn.com/v2/sports/golf/leagues/pga/events/${ev.id}/competitions/${ev.id}/competitors/${p.id}/status`;
       const r = await fetch(url);
@@ -592,7 +638,6 @@ async function hydratePgaTeeTimes(ev) {
 function formatTeeTime(iso, startHole) {
   const d = new Date(iso);
   const time = d.toLocaleTimeString([], { hour: "numeric", minute: "2-digit" }).replace(/\s/g, "").toLowerCase();
-  // ESPN's UI shows "1:35p · 10" when starting from hole 10
   return startHole && startHole !== 1 ? `${time} · ${startHole}` : time;
 }
 
