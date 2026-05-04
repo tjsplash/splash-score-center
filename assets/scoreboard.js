@@ -2,11 +2,11 @@
 // list (NBA, MLB, NHL, WNBA, PGA leaderboard). Live data from ESPN's public
 // scoreboard endpoints.
 
-import { renderNav, mountTicker, escape } from "./script.js?v2026050208";
+import { renderNav, mountTicker, escape } from "./script.js?v2026050209";
 import {
   fetchScoreboard, fetchSummary, normalizeEvent,
   pollScoreboard, LEAGUES, TEAM_LOGO,
-} from "./espn.js?v2026050208";
+} from "./espn.js?v2026050209";
 
 renderNav("scoreboard");
 mountTicker(document.querySelector(".ticker"));
@@ -230,7 +230,10 @@ async function hydrateCard(ev) {
       ? `<div class="sb-card__leaders-grid">
           ${leaders.slice(0, 4).map(l => `
             <span class="sb-card__leader-cat">${escape(l.cat)}</span>
-            <span class="sb-card__leader-player"><b>${escape(l.name)}</b> <span class="muted">(${escape(l.team)})</span></span>
+            <span class="sb-card__leader-player">
+              <b>${escape(l.name)}</b>
+              ${l.team ? `<span class="sb-card__leader-team">${escape(l.team)}</span>` : ""}
+            </span>
             <span class="sb-card__leader-stat">${escape(l.stat)}</span>
           `).join("")}
         </div>`

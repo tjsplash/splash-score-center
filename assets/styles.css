@@ -1185,8 +1185,9 @@ img {
   box-shadow: var(--shadow);
   display: grid;
   /* status · teams · linescore · leaders (slack goes to leaders so player
-     names + stats don't truncate). */
-  grid-template-columns: 76px minmax(240px, 280px) minmax(180px, 220px) minmax(0, 1fr);
+     names + stats don't truncate). Min widths chosen so on a 1024-wide
+     viewport leaders still gets ~300px. */
+  grid-template-columns: 70px minmax(220px, 260px) minmax(160px, 200px) minmax(280px, 1fr);
   gap: 12px;
   align-items: center;
   cursor: pointer;
@@ -1275,11 +1276,38 @@ img {
 
 .sb-card__leaders-grid {
   display: grid;
-  /* Category badge · player name (flex) · stats. Stats column also flexes
-     so long lines like "4.0 IP · 6 K · 0.96 ERA" don't get crushed. */
-  grid-template-columns: 36px minmax(80px, 1.1fr) minmax(120px, 1.6fr);
-  gap: 4px 10px;
+  /* Category badge · player+team chip (flex) · stats. The minmax floors
+     are sized so even a 280-px leaders column still fits "M. Burcheasy"
+     (~110px) and "4.0 IP · 6 K · 0.96 ERA" (~150px). */
+  grid-template-columns: 32px minmax(110px, 1fr) minmax(150px, 1.4fr);
+  gap: 4px 8px;
   align-items: baseline;
+}
+
+.sb-card__leader-player {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 5px;
+  min-width: 0;
+}
+
+.sb-card__leader-player b {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.sb-card__leader-team {
+  display: inline-block;
+  flex-shrink: 0;
+  font-size: 9px;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  color: var(--text-mute);
+  background: var(--bg-page);
+  padding: 1px 5px;
+  border-radius: 3px;
+  vertical-align: middle;
 }
 
 .sb-card__leader-stat {
