@@ -3,7 +3,7 @@
 // to comment, react, or chat. All chosen team chips render together on every
 // post the user makes, so a fan with NBA + MLB allegiances shows both.
 
-import { get, set } from "./storage.js?v2026050207";
+import { get, set } from "./storage.js?v2026050208";
 
 const KEY = "identity";
 

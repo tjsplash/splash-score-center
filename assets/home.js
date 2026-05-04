@@ -2,13 +2,13 @@
 // selected league, and a row of action buttons at the bottom that surface
 // bracket / standings / season leaders inline (ESPN-style).
 
-import { renderNav, mountTicker, escape, teamHex } from "./script.js?v2026050207";
+import { renderNav, mountTicker, escape, teamHex } from "./script.js?v2026050208";
 import {
   fetchScoreboard, fetchSummary, normalizeEvent, pollScoreboard, LEAGUES,
-} from "./espn.js?v2026050207";
+} from "./espn.js?v2026050208";
 import {
   matchEspnToSplash, popularPropsForGame, playerInitials,
-} from "./quickpicks.js?v2026050207";
+} from "./quickpicks.js?v2026050208";
 
 const HOME_LEAGUES = ["nba", "mlb", "nhl", "pga"];
 

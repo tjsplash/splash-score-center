@@ -2,9 +2,9 @@
 // Tabs: Leaderboard, Shot Feed (hole-by-hole highlights for top-10 or
 // starred), Player Stats (per-player season + tournament), Course Stats.
 
-import { renderNav, mountTicker, escape } from "./script.js?v2026050207";
-import { fetchScoreboard, pollScoreboard } from "./espn.js?v2026050207";
-import { findActiveTournament, fetchLeaderboard, fetchLiveStrokes } from "./pgatour.js?v2026050207";
+import { renderNav, mountTicker, escape } from "./script.js?v2026050208";
+import { fetchScoreboard, pollScoreboard } from "./espn.js?v2026050208";
+import { findActiveTournament, fetchLeaderboard, fetchLiveStrokes } from "./pgatour.js?v2026050208";
 
 renderNav("game");
 mountTicker(document.querySelector(".ticker"));

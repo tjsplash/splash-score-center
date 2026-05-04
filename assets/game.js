@@ -1,14 +1,14 @@
 // Game Center controller: header + tabs + live polling.
 // Pulls a real ESPN summary on a 10s loop and fans data out to sub-modules.
 
-import { renderNav, mountTicker, escape } from "./script.js?v2026050207";
-import { fetchSummary, pollSummary, normalizeEvent, TEAM_LOGO, LEAGUES } from "./espn.js?v2026050207";
-import { mountPbp, updatePbp } from "./pbp.js?v2026050207";
-import { mountBoxscore, updateBoxscore } from "./boxscore.js?v2026050207";
-import { mountMarkets, updateMarketsFromPlay, refreshSparklines } from "./markets.js?v2026050207";
-import { mountWinprob, updateWinprob } from "./winprob.js?v2026050207";
-import { mountChat } from "./chat.js?v2026050207";
-import { startFakeActivity } from "./fakeusers.js?v2026050207";
+import { renderNav, mountTicker, escape } from "./script.js?v2026050208";
+import { fetchSummary, pollSummary, normalizeEvent, TEAM_LOGO, LEAGUES } from "./espn.js?v2026050208";
+import { mountPbp, updatePbp } from "./pbp.js?v2026050208";
+import { mountBoxscore, updateBoxscore } from "./boxscore.js?v2026050208";
+import { mountMarkets, updateMarketsFromPlay, refreshSparklines } from "./markets.js?v2026050208";
+import { mountWinprob, updateWinprob } from "./winprob.js?v2026050208";
+import { mountChat } from "./chat.js?v2026050208";
+import { startFakeActivity } from "./fakeusers.js?v2026050208";
 
 renderNav("game");
 mountTicker(document.querySelector(".ticker"));

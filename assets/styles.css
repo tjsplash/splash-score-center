@@ -1184,8 +1184,10 @@ img {
   padding: 16px 20px;
   box-shadow: var(--shadow);
   display: grid;
-  grid-template-columns: 90px 1fr 200px 220px;
-  gap: 16px;
+  /* status · teams · linescore · leaders (slack goes to leaders so player
+     names + stats don't truncate). */
+  grid-template-columns: 76px minmax(240px, 280px) minmax(180px, 220px) minmax(0, 1fr);
+  gap: 12px;
   align-items: center;
   cursor: pointer;
   transition: box-shadow 0.15s;
@@ -1273,9 +1275,21 @@ img {
 
 .sb-card__leaders-grid {
   display: grid;
-  grid-template-columns: 56px 1fr auto;
-  gap: 4px 8px;
+  /* Category badge · player name (flex) · stats. Stats column also flexes
+     so long lines like "4.0 IP · 6 K · 0.96 ERA" don't get crushed. */
+  grid-template-columns: 36px minmax(80px, 1.1fr) minmax(120px, 1.6fr);
+  gap: 4px 10px;
   align-items: baseline;
+}
+
+.sb-card__leader-stat {
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
+  color: var(--text-dark);
+  font-size: 11px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .sb-card__leader-cat {
