@@ -2,13 +2,13 @@
 // selected league, and a row of action buttons at the bottom that surface
 // bracket / standings / season leaders inline (ESPN-style).
 
-import { renderNav, mountTicker, escape, teamHex } from "./script.js?v2026050209";
+import { renderNav, mountTicker, escape, teamHex } from "./script.js?v2026050214";
 import {
   fetchScoreboard, fetchSummary, normalizeEvent, pollScoreboard, LEAGUES,
-} from "./espn.js?v2026050209";
+} from "./espn.js?v2026050214";
 import {
   matchEspnToSplash, popularPropsForGame, playerInitials,
-} from "./quickpicks.js?v2026050209";
+} from "./quickpicks.js?v2026050214";
 
 const HOME_LEAGUES = ["nba", "mlb", "nhl", "pga"];
 
@@ -464,6 +464,7 @@ function qpPropRowHtml(p, league) {
   const teamLogo = teamAlias
     ? `<img class="tc-qp__team-logo" src="https://a.espncdn.com/i/teamlogos/${league}/500/${teamAlias.toLowerCase()}.png" alt="${escape(teamAlias)}" />`
     : `<span class="tc-qp__team-logo tc-qp__team-logo--blank"></span>`;
+  const playLink = "https://app.splashsports.com/quick-picks/board";
   return `
     <li class="tc-qp" style="--team-color:${escape(teamColor)}">
       <span class="tc-qp__avatar" aria-hidden="true">${escape(playerInitials(p.entity_name))}</span>
@@ -472,7 +473,16 @@ function qpPropRowHtml(p, league) {
         <span class="tc-qp__player">${escape(p.entity_name)}</span>
         <span class="tc-qp__type">${escape(p.type_display)}</span>
       </span>
-      <span class="tc-qp__line">${formatLine(p.line)}</span>
+      <span class="tc-qp__pills">
+        <a class="tc-qp__pill tc-qp__pill--more" href="${escape(playLink)}" target="_blank" rel="noopener" aria-label="More than ${formatLine(p.line)}">
+          <span class="tc-qp__pill-verb">More</span>
+          <span class="tc-qp__pill-line">${formatLine(p.line)}</span>
+        </a>
+        <a class="tc-qp__pill tc-qp__pill--less" href="${escape(playLink)}" target="_blank" rel="noopener" aria-label="Less than ${formatLine(p.line)}">
+          <span class="tc-qp__pill-verb">Less</span>
+          <span class="tc-qp__pill-line">${formatLine(p.line)}</span>
+        </a>
+      </span>
     </li>
   `;
 }

@@ -751,13 +751,61 @@ img {
 .tc-qp {
   --team-color: #6b7280;
   display: grid;
-  grid-template-columns: 28px 22px 1fr auto;
+  grid-template-columns: 28px 22px minmax(0, 1fr) auto;
   gap: 8px;
   align-items: center;
-  padding: 5px 0;
+  padding: 6px 0;
   border-bottom: 1px dashed var(--border);
 }
 .tc-qp:last-child { border-bottom: none; }
+
+.tc-qp__pills {
+  display: inline-flex;
+  gap: 4px;
+  flex-shrink: 0;
+}
+
+.tc-qp__pill {
+  display: inline-flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-width: 56px;
+  padding: 6px 10px;
+  border-radius: 8px;
+  border: 1.5px solid var(--border);
+  background: var(--bg-card);
+  cursor: pointer;
+  text-decoration: none;
+  transition: background 0.12s, border-color 0.12s, transform 0.05s;
+  line-height: 1;
+}
+
+.tc-qp__pill:hover { transform: translateY(-1px); }
+.tc-qp__pill:active { transform: scale(0.96); }
+
+.tc-qp__pill-verb {
+  font-size: 8px;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text-mute);
+  line-height: 1;
+}
+
+.tc-qp__pill-line {
+  font-size: 12px;
+  font-weight: 800;
+  color: var(--text-dark);
+  font-variant-numeric: tabular-nums;
+  margin-top: 2px;
+  line-height: 1;
+}
+
+.tc-qp__pill--more:hover { background: color-mix(in srgb, var(--green) 8%, var(--bg-card)); border-color: var(--green); }
+.tc-qp__pill--more:hover .tc-qp__pill-verb { color: var(--green); }
+.tc-qp__pill--less:hover { background: color-mix(in srgb, var(--red) 8%, var(--bg-card)); border-color: var(--red); }
+.tc-qp__pill--less:hover .tc-qp__pill-verb { color: var(--red); }
 
 .tc-qp__avatar {
   width: 28px;

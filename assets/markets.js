@@ -3,11 +3,14 @@
 // opposite (synthesized when only one side exists in the seed data) so every
 // card shows yes/no percentages plus a dual-line history chart.
 
-import { escape, teamHex } from "./script.js?v2026050209";
-import { injectMarketMove } from "./pbp.js?v2026050209";
+import { escape, teamHex } from "./script.js?v2026050214";
+import { injectMarketMove } from "./pbp.js?v2026050214";
 import {
   matchEspnToSplash, groupPropsByPlayer, playerInitials,
-} from "./quickpicks.js?v2026050209";
+} from "./quickpicks.js?v2026050214";
+import {
+  findMarketsForMatchup, fetchPricesHistory, buildCandles, teamNameFor,
+} from "./polymarket.js?v2026050214";
 
 const SWING_THRESHOLD = 0.05;
 const HISTORY_LEN = 60;
@@ -33,18 +36,121 @@ export async function mountMarkets(el, opts) {
   rootEl = el;
   gameId = opts.gameId;
   league = opts.league || "nba";
-  const all = await (await fetch("data/markets.json", { cache: "no-cache" })).json();
-  const cfg = all[gameId];
+  homeAbbr = opts.homeAbbr || null;
+  awayAbbr = opts.awayAbbr || null;
+
+  // 1) Try the static seed file first (curated tonight-event markets with
+  //    full type coverage: ML, spread, total, 1H, player props, series).
+  let cfg = null;
+  try {
+    const all = await (await fetch("data/markets.json", { cache: "no-cache" })).json();
+    cfg = all[gameId] || null;
+  } catch {}
   if (cfg) {
-    homeAbbr = cfg.homeTeam;
-    awayAbbr = cfg.awayTeam;
+    homeAbbr = cfg.homeTeam || homeAbbr;
+    awayAbbr = cfg.awayTeam || awayAbbr;
     eventUrl = cfg.eventUrl;
     pairs = buildPairs(cfg.markets, homeAbbr, awayAbbr, eventUrl);
   } else {
     pairs = [];
   }
   renderMarkets();
+
+  // 2) Always try Polymarket live discovery — even when a seed exists we
+  //    fold any additional Polymarket-listed markets into the grid so users
+  //    see every available market for the game.
+  hydratePolymarketLive();
+
+  // 3) Splash Quick Picks (props from the public splashsports API).
   hydrateSplashPicks(cfg, opts.homeAbbr, opts.awayAbbr);
+}
+
+async function hydratePolymarketLive() {
+  if (!homeAbbr || !awayAbbr) return;
+  let live;
+  try { live = await findMarketsForMatchup(league, homeAbbr, awayAbbr); }
+  catch { return; }
+  if (!live || !live.length) return;
+
+  const existingIds = new Set(pairs.map(p => p.id));
+  const livePairs = live
+    .filter(m => !existingIds.has(m.id))
+    .map(m => livePairFromPolymarket(m, homeAbbr, awayAbbr));
+
+  if (!livePairs.length && pairs.length) return; // seed already covers it
+  pairs = pairs.concat(livePairs);
+  if (!eventUrl && live[0]?.eventUrl) eventUrl = live[0].eventUrl;
+  renderMarkets();
+  // Hydrate prices-history → candle charts asynchronously.
+  livePairs.forEach(p => hydrateCandlesticks(p));
+}
+
+function livePairFromPolymarket(m, homeT, awayT) {
+  const [yesColor, noColor] = pairColorsFor(m, homeT, awayT);
+  const yesHistory = seedHistory(m.yes.price);
+  const noHistory = seedHistory(m.no.price);
+  return {
+    id: m.id,
+    type: m.type,
+    title: m.title || m.type,
+    urlEvent: m.eventUrl,
+    isLive: true,
+    yes: {
+      id: m.id + ":yes",
+      label: m.yes.label,
+      longLabel: m.yes.label,
+      side: m.yes.label,
+      price: m.yes.price,
+      delta24: 0,
+      history: yesHistory,
+      candles: [],
+      tokenId: m.yes.tokenId,
+      color: yesColor,
+      url: m.eventUrl,
+    },
+    no: {
+      id: m.id + ":no",
+      label: m.no.label,
+      longLabel: m.no.label,
+      side: m.no.label,
+      price: m.no.price,
+      delta24: 0,
+      history: noHistory,
+      candles: [],
+      tokenId: m.no.tokenId,
+      color: noColor,
+      url: m.eventUrl,
+    },
+    snapshot: { yes: m.yes.price, no: m.no.price },
+  };
+}
+
+function pairColorsFor(m, homeT, awayT) {
+  const yes = (m.yes.label || "").toLowerCase();
+  const no = (m.no.label || "").toLowerCase();
+  const homeName = teamNameFor(homeT, league)?.toLowerCase();
+  const awayName = teamNameFor(awayT, league)?.toLowerCase();
+  if (yes === "yes" && no === "no") return [COLOR.yesNeutral, COLOR.noNeutral];
+  if (yes.includes("over")) return [COLOR.over, COLOR.under];
+  if (yes.includes("under")) return [COLOR.under, COLOR.over];
+  if (homeName && yes.includes(homeName)) return ["#" + teamHex(homeT), "#" + teamHex(awayT)];
+  if (homeName && no.includes(homeName)) return ["#" + teamHex(awayT), "#" + teamHex(homeT)];
+  if (awayName && yes.includes(awayName)) return ["#" + teamHex(awayT), "#" + teamHex(homeT)];
+  return [COLOR.yesNeutral, COLOR.noNeutral];
+}
+
+async function hydrateCandlesticks(pair) {
+  const [yesPts, noPts] = await Promise.all([
+    fetchPricesHistory(pair.yes.tokenId),
+    fetchPricesHistory(pair.no.tokenId),
+  ]);
+  pair.yes.candles = buildCandles(yesPts, 28);
+  pair.no.candles = buildCandles(noPts, 28);
+  // Replace synthetic history with real prices for the dual-line variant too.
+  if (yesPts.length) pair.yes.history = yesPts.map(p => p.p);
+  if (noPts.length) pair.no.history = noPts.map(p => p.p);
+  // Re-render just this card's chart.
+  drawDualSparkline(pair);
 }
 
 // ---- Pairing ----
@@ -422,6 +528,15 @@ function renderMarkets() {
   requestAnimationFrame(() => pairs.forEach(p => drawDualSparkline(p)));
 }
 
+// Called by game.js once the ESPN summary has populated the team
+// abbreviations. We re-trigger the Polymarket discovery so the markets tab
+// fills in even when the static seed has no entry for this game id.
+export function setMatchupContext(opts) {
+  if (opts.homeAbbr && !homeAbbr) homeAbbr = opts.homeAbbr;
+  if (opts.awayAbbr && !awayAbbr) awayAbbr = opts.awayAbbr;
+  if (homeAbbr && awayAbbr) hydratePolymarketLive();
+}
+
 export function refreshSparklines() {
   requestAnimationFrame(() => pairs.forEach(p => drawDualSparkline(p)));
 }
@@ -468,21 +583,6 @@ function drawDualSparkline(p) {
   ctx.scale(devicePixelRatio, devicePixelRatio);
   ctx.clearRect(0, 0, w, h);
 
-  // Y axis is fixed 0..1 so yes and no are mirrored around 50%.
-  const drawLine = (pts, color) => {
-    if (!pts.length) return;
-    ctx.strokeStyle = color;
-    ctx.lineWidth = 1.6;
-    ctx.beginPath();
-    pts.forEach((v, i) => {
-      const x = (i / (pts.length - 1 || 1)) * w;
-      const y = h - clamp(v, 0, 1) * (h - 6) - 3;
-      if (i === 0) ctx.moveTo(x, y);
-      else ctx.lineTo(x, y);
-    });
-    ctx.stroke();
-  };
-
   // 50% guideline.
   ctx.strokeStyle = "rgba(0,0,0,0.06)";
   ctx.lineWidth = 1;
@@ -493,8 +593,80 @@ function drawDualSparkline(p) {
   ctx.stroke();
   ctx.setLineDash([]);
 
-  drawLine(p.yes.history, p.yes.color);
-  drawLine(p.no.history, p.no.color);
+  // If we have OHLC candles from the live Polymarket prices-history feed,
+  // render the YES side as candlesticks (Polymarket-style — green up, red
+  // down) and overlay the NO side as a dashed counter-line. Otherwise fall
+  // back to the simple two-line sparkline used during seed data.
+  const yesCandles = p.yes?.candles || [];
+  if (yesCandles.length >= 2) {
+    drawCandlesticks(ctx, yesCandles, w, h);
+    drawSimpleLine(ctx, p.no.history, p.no.color, w, h, /* dashed */ true);
+  } else {
+    drawSimpleLine(ctx, p.yes.history, p.yes.color, w, h);
+    drawSimpleLine(ctx, p.no.history, p.no.color, w, h);
+  }
+}
+
+function drawSimpleLine(ctx, pts, color, w, h, dashed = false) {
+  if (!pts || !pts.length) return;
+  ctx.strokeStyle = color;
+  ctx.lineWidth = 1.6;
+  if (dashed) ctx.setLineDash([3, 3]);
+  ctx.beginPath();
+  pts.forEach((v, i) => {
+    const x = (i / (pts.length - 1 || 1)) * w;
+    const y = h - clamp(v, 0, 1) * (h - 6) - 3;
+    if (i === 0) ctx.moveTo(x, y);
+    else ctx.lineTo(x, y);
+  });
+  ctx.stroke();
+  ctx.setLineDash([]);
+}
+
+function drawCandlesticks(ctx, candles, w, h) {
+  // Domain: percent (0..1) on Y; left to right by time index on X.
+  const padX = 2;
+  const innerW = Math.max(1, w - padX * 2);
+  const colW = innerW / candles.length;
+  const wickX = padX + colW / 2;
+  const bodyW = Math.max(2, Math.min(8, colW * 0.65));
+
+  const yFor = (v) => h - clamp(v, 0, 1) * (h - 6) - 3;
+
+  candles.forEach((c, i) => {
+    const cx = padX + i * colW + colW / 2;
+    const high = yFor(c.h);
+    const low = yFor(c.l);
+    const open = yFor(c.o);
+    const close = yFor(c.c);
+    const up = c.c >= c.o;
+    // Splash palette: teal-deep for bullish candles, muted Splash red for
+    // bearish. Reads instantly like a chart but stays inside our brand.
+    const color = up ? "#1BC4CF" : "#ef4444";
+
+    // Wick
+    ctx.strokeStyle = color;
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.moveTo(cx, high);
+    ctx.lineTo(cx, low);
+    ctx.stroke();
+
+    // Body
+    const bodyTop = Math.min(open, close);
+    const bodyBottom = Math.max(open, close);
+    const bodyH = Math.max(1, bodyBottom - bodyTop);
+    if (up) {
+      ctx.fillStyle = color;
+      ctx.fillRect(cx - bodyW / 2, bodyTop, bodyW, bodyH);
+    } else {
+      ctx.fillStyle = "#fff";
+      ctx.fillRect(cx - bodyW / 2, bodyTop, bodyW, bodyH);
+      ctx.strokeStyle = color;
+      ctx.lineWidth = 1.2;
+      ctx.strokeRect(cx - bodyW / 2 + 0.5, bodyTop + 0.5, bodyW - 1, bodyH - 1);
+    }
+  });
 }
 
 // ---- Helpers ----

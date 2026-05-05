@@ -1,14 +1,14 @@
 // Game Center controller: header + tabs + live polling.
 // Pulls a real ESPN summary on a 10s loop and fans data out to sub-modules.
 
-import { renderNav, mountTicker, escape } from "./script.js?v2026050209";
-import { fetchSummary, pollSummary, normalizeEvent, TEAM_LOGO, LEAGUES } from "./espn.js?v2026050209";
-import { mountPbp, updatePbp } from "./pbp.js?v2026050209";
-import { mountBoxscore, updateBoxscore } from "./boxscore.js?v2026050209";
-import { mountMarkets, updateMarketsFromPlay, refreshSparklines } from "./markets.js?v2026050209";
-import { mountWinprob, updateWinprob } from "./winprob.js?v2026050209";
-import { mountChat } from "./chat.js?v2026050209";
-import { startFakeActivity } from "./fakeusers.js?v2026050209";
+import { renderNav, mountTicker, escape } from "./script.js?v2026050214";
+import { fetchSummary, pollSummary, normalizeEvent, TEAM_LOGO, LEAGUES } from "./espn.js?v2026050214";
+import { mountPbp, updatePbp } from "./pbp.js?v2026050214";
+import { mountBoxscore, updateBoxscore } from "./boxscore.js?v2026050214";
+import { mountMarkets, updateMarketsFromPlay, refreshSparklines, setMatchupContext } from "./markets.js?v2026050214";
+import { mountWinprob, updateWinprob } from "./winprob.js?v2026050214";
+import { mountChat } from "./chat.js?v2026050214";
+import { startFakeActivity } from "./fakeusers.js?v2026050214";
 
 renderNav("game");
 mountTicker(document.querySelector(".ticker"));
@@ -20,13 +20,12 @@ const isBasketball = league === "nba" || league === "wnba";
 
 mountPbp(document.getElementById("panel-pbp"), { gameId, league });
 mountBoxscore(document.getElementById("panel-boxscore"), { gameId, league });
-// Markets + Win Prob are NBA-specific (Polymarket coverage). Hide for other leagues.
+// Markets work for any league we can match on Polymarket (NBA, MLB, NHL, NFL).
+// Win Prob is still ESPN-NBA-specific so we hide that tab for other sports.
+mountMarkets(document.getElementById("panel-markets"), { gameId, league });
 const isNbaGame = league === "nba";
-if (isNbaGame) {
-  mountMarkets(document.getElementById("panel-markets"), { gameId, league });
-} else {
-  // Hide unsupported tabs and panels for non-NBA games.
-  ["markets", "winprob"].forEach(t => {
+if (!isNbaGame) {
+  ["winprob"].forEach(t => {
     const tab = document.querySelector(`.gc__tab[data-tab="${t}"]`);
     const panel = document.querySelector(`.gc__panel[data-panel="${t}"]`);
     if (tab) tab.style.display = "none";
@@ -162,6 +161,10 @@ function bootstrapHeader(summary) {
   const away = c.competitors.find(x => x.homeAway === "away");
   homeAbbr = home.team.abbreviation;
   awayAbbr = away.team.abbreviation;
+
+  // Tell the markets module which teams are playing so it can discover
+  // matching Polymarket markets (live yes/no candlestick cards).
+  try { setMatchupContext({ homeAbbr, awayAbbr }); } catch {}
 
   const colors = pickDistinctChartColors(home.team, away.team);
 
